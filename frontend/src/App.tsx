@@ -4,7 +4,7 @@ import { Route, Routes } from 'react-router-dom';
 import About from '@components/About';
 import MainView from '@components/MainView';
 import FeatureHunt from '@components/featurehunt/FeatureHunt';
-import { TourProvider, useTour } from '@reactour/tour'
+import { TourProvider } from '@reactour/tour'
 import { tutorialSteps } from '@/tutorialSteps';
 
 function App() {

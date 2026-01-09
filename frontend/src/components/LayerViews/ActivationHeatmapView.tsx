@@ -20,11 +20,17 @@ const CELL_MIN_WIDTH = 12
 const CELL_SUMMARY_MIN_WIDTH = 20
 const CELL_MIN_HEIGHT = 6
 
-const ActivationHeatmapView: FC<Props> = ({ node, minWidth, minHeight, normalizeRow, totalMaxChannels }) => {
+const ActivationHeatmapView: FC<Props> = ({ 
+    node, 
+    minWidth, 
+    minHeight, 
+    normalizeRow = true, 
+    totalMaxChannels = (arr: number[]) => arr.length * 0.2 
+}) => {
     const [heatmap, setHeatmap] = React.useState<number[][]>([])
     const svgRef = React.useRef<SVGSVGElement>(null)
     const analyzeResult = useAppSelector(selectAnalysisResult)
-    const [globalColorScale, setGlobalColorScale] = React.useState(false)
+    const [globalColorScale, _setGlobalColorScale] = React.useState(false)
     const [hoveredItem, setHoveredItem] = React.useState<[number, number]>([-1, -1])
     const [sortBy, setSortBy] = React.useState<'count' | 'pairwise' | 'variance' | 'edge_weight' | 'none'>('pairwise')
     const [classNames, setClassNames] = React.useState<string[]>([])
@@ -290,7 +296,7 @@ const ActivationHeatmapView: FC<Props> = ({ node, minWidth, minHeight, normalize
                 {/* Add title for each class */}
                 {analyzeResult.selectedClasses.map((label, i) => (
                     <text key={label+i}
-                        textAnchor='bottom'
+                        textAnchor='start'
                         style={{
                             transformOrigin: `0% 0%`,
                             fontSize: '10px'
@@ -315,7 +321,7 @@ const ActivationHeatmapView: FC<Props> = ({ node, minWidth, minHeight, normalize
                         onMouseLeave={(e) => {
                             e.currentTarget.classList.remove('hovered')
                         }}
-                        textAnchor='bottom'
+                        textAnchor='start'
                         style={{
                             transformOrigin: `0% 0%`,
                             fontSize: '10px',
@@ -336,7 +342,7 @@ const ActivationHeatmapView: FC<Props> = ({ node, minWidth, minHeight, normalize
                     </text>
                     {label === sortById2Labels[sortBy] && (
                         <text
-                            textAnchor='bottom'
+                            textAnchor='start'
                             style={{
                                 transformOrigin: `0% 0%`,
                                 fontSize: '10px',
@@ -383,11 +389,5 @@ const ActivationHeatmapView: FC<Props> = ({ node, minWidth, minHeight, normalize
         />}
     </>
 }
-
-ActivationHeatmapView.defaultProps = {
-    normalizeRow: true,
-    totalMaxChannels: arr => arr.length * 0.2,
-}
-
 
 export default ActivationHeatmapView

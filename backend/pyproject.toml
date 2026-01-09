@@ -1,50 +1,23 @@
-[tool.poetry]
-name = "ChannelExplorer"
-version = "0.0.2"
-description = ""
-# authors = ["Rahat Zaman <rahatzamancse@gmail.com>"]
-authors = ["anonymous <anonymous@gmail.com>"]
-# readme = "../README.md"
-homepage = "https://github.com/anonymous/ChannelExplorer"
-repository = "https://github.com/anonymous/ChannelExplorer"
-keywords = ["ChannelExplorer"]
-packages = [
-    { include = "channelexplorer" },
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.128.0",
+    "grandalf>=0.8",
+    "keract>=4.5.2",
+    "networkx>=3.4.2",
+    "nptyping>=2.5.0",
+    "pillow>=12.1.0",
+    "pyclustering>=0.10.1.2",
+    "redis>=7.1.0",
+    "scikit-learn>=1.7.2",
+    "tensorflow[and-cuda]>=2.18.1",
+    "tensorflow-datasets>=4.9.9",
+    "tqdm>=4.67.1",
+    "umap-learn>=0.5.9.post2",
+    "uvicorn>=0.40.0",
+    "pydot>=4.0.1",
 ]
-
-[tool.poetry.dependencies]
-python = "^3.10, <3.11"
-numpy = "^1.26.3"
-fastapi = "^0.108.0"
-scikit-learn = "^1.3.2"
-uvicorn = "^0.25.0"
-tqdm = "^4.66.1"
-pillow = "^10.2.0"
-redis = "^5.0.1"
-torch = {version = "^2.1.2", optional = true}
-torchvision = {version = "^0.16.2", optional = true}
-tensorflow = {version = "2.15", optional = true}
-nptyping = "^2.5.0"
-beartype = "^0.16.4"
-tensorflow-datasets = {version = "^4.9.4", optional = true}
-keract = {version = "^4.5.1", optional = true}
-matplotlib = "^3.8.2"
-grandalf = "^0.8"
-nltk = "^3.8.1"
-pydot = "^2.0.0"
-umap-learn = "^0.5.5"
-sphinx = "^7.2.6"
-sphinx-rtd-theme = "^2.0.0"
-pyclustering = "^0.10.1.2"
-
-[tool.poetry.extras]
-tensorflow = ["tensorflow", "tensorflow-datasets", "keract"]
-pytorch = ["torch", "torchvision"]
-
-[tool.poetry.dev-dependencies]
-ipykernel = "^6.29.3"
-
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"

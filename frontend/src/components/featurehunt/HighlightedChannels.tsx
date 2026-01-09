@@ -1,21 +1,15 @@
-import React, { FC } from 'react'
+import React from 'react'
 import * as api from '@api'
-import { Node } from '@types'
-import * as d3 from 'd3'
 import { useAppSelector } from '@hooks'
-import { selectAnalysisResult } from '@features/analyzeSlice'
-import { calcAllPairwiseDistance, calcSumPairwiseDistance, calcVariance, chunkify, findIndicesOfMax, getRawHeatmap, transposeArray } from '@utils/utils'
-import ImageToolTip from '@components/ImageToolTip'
 import { selectFeatureHunt } from '@features/featureHuntSlice'
 
 const HighlightedChannels = () => {
     const [heatmap, setHeatmap] = React.useState<number[][]>([])
     const svgRef = React.useRef<SVGSVGElement>(null)
-    const [hoveredItem, setHoveredItem] = React.useState<[number, number]>([-1, -1])
     const featureHuntState = useAppSelector(selectFeatureHunt)
     
     
-    const a = {
+    const _exampleActivatedChannels = {
         "activated_channels": {
             "conv2d_1": [
                 0,

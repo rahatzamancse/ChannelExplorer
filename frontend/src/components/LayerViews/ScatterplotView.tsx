@@ -67,7 +67,7 @@ function ScatterplotView({ node }: { node: Node }) {
     const [coords, setCoords] = React.useState<[number, number][]>([])
     const [distances, setDistances] = React.useState<number[][]>([])
 
-    const [showLines, setShowLines] = React.useState<boolean>(false);
+    const [showLines, _setShowLines] = React.useState<boolean>(false);
     const [useXMeans, setUseXMeans] = React.useState<boolean>(true);
     const [kClusters, setKClusters] = React.useState<number>(2);
     const [hoveredItem, setHoveredItem] = React.useState<number>(-1);

@@ -8,6 +8,54 @@ import networkx as nx
 from ..types import NodeInfo, IMAGE_TYPE, GRAY_IMAGE_TYPE
 from ..utils import *
 
+
+def pydot_to_networkx(P):
+    """Convert a pydot graph to a networkx graph.
+    
+    Custom implementation to work around compatibility issues between
+    networkx and newer pydot versions where get_strict() signature changed.
+    """
+    # Determine if graph is directed
+    if P.get_type() == "graph":
+        N = nx.Graph()
+    else:
+        N = nx.DiGraph()
+
+    # Set graph attributes
+    graph_attrs = {k: v for k, v in P.get_graph_defaults()}
+    N.graph.update(graph_attrs)
+
+    def strip_quotes(s):
+        """Strip surrounding quotes from a string."""
+        if isinstance(s, str) and len(s) >= 2:
+            if (s.startswith('"') and s.endswith('"')) or (s.startswith("'") and s.endswith("'")):
+                return s[1:-1]
+        return s
+
+    # Add nodes
+    for node in P.get_nodes():
+        node_name = node.get_name()
+        if node_name in ('node', 'edge', 'graph'):
+            continue
+        # Strip quotes from node name if present
+        node_name = strip_quotes(node_name)
+        # Get attributes - pydot returns them with quotes, so strip them
+        node_attrs = {}
+        for k, v in node.get_attributes().items():
+            node_attrs[k] = strip_quotes(v) if isinstance(v, str) else v
+        N.add_node(node_name, **node_attrs)
+
+    # Add edges
+    for edge in P.get_edges():
+        src = strip_quotes(edge.get_source())
+        dst = strip_quotes(edge.get_destination())
+        edge_attrs = {}
+        for k, v in edge.get_attributes().items():
+            edge_attrs[k] = strip_quotes(v) if isinstance(v, str) else v
+        N.add_edge(src, dst, **edge_attrs)
+
+    return N
+
 # def get_example(ds, count=1) -> tuple[np.ndarray, int]:
 #     if count == 1:
 #         return next(ds.shuffle(10).take(count).as_numpy_iterator())
@@ -107,8 +155,23 @@ def parse_tensorflow_dot_label(label: str) -> NodeInfo:
     Returns:
         NodeInfo: The parsed result.
     """
+    # Strip surrounding quotes if present
+    if label.startswith('"') and label.endswith('"'):
+        label = label[1:-1]
+    # Handle escaped quotes
+    label = label.replace('\\"', '"')
+    
+    # Check if it's the new HTML-style format (TensorFlow 2.x)
+    if '<table' in label:
+        return _parse_html_label(label)
+    
+    # Old pipe-separated format
     pattern = re.compile(r"\{([\w\d_]+)\|(\{[\w\d_]+\|[\w\d_]+\}|[\w\d_]+)\|([\w\d_]+)\}\|\{input:\|output:\}\|\{\{([\[\]\(\),\w\d_ ]*)\}\|\{([\[\]\(\),\w\d_ ]*)\}\}")
     match = pattern.findall(label)
+    
+    if not match:
+        raise ValueError(f"Could not parse layer label: {label!r}")
+    
     name, layer_type, tensor_type, input_shape, output_shape = match[-1]
     layer_activation = None
     if '|' in layer_type:
@@ -121,6 +184,57 @@ def parse_tensorflow_dot_label(label: str) -> NodeInfo:
         'tensor_type': tensor_type,
         'input_shape': literal_eval(input_shape),
         'output_shape': literal_eval(output_shape),
+        'layer_activation': layer_activation,
+        'kernel_size': None
+    }
+    return ret
+
+
+def _parse_html_label(label: str) -> NodeInfo:
+    """Parse the new HTML-style label format from TensorFlow 2.x model_to_dot"""
+    
+    # Extract name and layer type: <b>name</b> (LayerType)
+    name_pattern = re.compile(r'<b>(\w+)</b>\s*\((\w+)\)')
+    name_match = name_pattern.search(label)
+    if not name_match:
+        raise ValueError(f"Could not parse layer name/type from: {label!r}")
+    name = name_match.group(1)
+    layer_type = name_match.group(2)
+    
+    # Extract output shape: Output shape: <b>(shape)</b>
+    output_shape_pattern = re.compile(r'Output shape:\s*<b>\(([^)]*)\)</b>')
+    output_shape_match = output_shape_pattern.search(label)
+    if output_shape_match:
+        output_shape_str = f"({output_shape_match.group(1)})"
+        output_shape = literal_eval(output_shape_str)
+    else:
+        output_shape = None
+    
+    # Extract input shape if present: Input shape: <b>(shape)</b>
+    input_shape_pattern = re.compile(r'Input shape:\s*<b>\(([^)]*)\)</b>')
+    input_shape_match = input_shape_pattern.search(label)
+    if input_shape_match:
+        input_shape_str = f"({input_shape_match.group(1)})"
+        input_shape = literal_eval(input_shape_str)
+    else:
+        input_shape = output_shape  # For InputLayer, input=output
+    
+    # Extract dtype: Output dtype: <b>dtype</b>
+    dtype_pattern = re.compile(r'Output dtype:\s*<b>(\w+)</b>')
+    dtype_match = dtype_pattern.search(label)
+    tensor_type = dtype_match.group(1) if dtype_match else 'float32'
+    
+    # Extract activation if present: Activation: <b>activation</b>
+    activation_pattern = re.compile(r'Activation:\s*<b>(\w+)</b>')
+    activation_match = activation_pattern.search(label)
+    layer_activation = activation_match.group(1) if activation_match else None
+    
+    ret: NodeInfo = {
+        'name': name,
+        'layer_type': layer_type,
+        'tensor_type': tensor_type,
+        'input_shape': input_shape,
+        'output_shape': output_shape,
         'layer_activation': layer_activation,
         'kernel_size': None
     }
@@ -147,7 +261,7 @@ def tensorflow_model_to_graph(model: K.Model) -> nx.Graph:
         layer_range=None,
         show_layer_activations=True
     )
-    G = nx.nx_pydot.from_pydot(dot)
+    G = pydot_to_networkx(dot)
 
     all_node_info = {}
     for node, node_data in G.nodes(data=True):

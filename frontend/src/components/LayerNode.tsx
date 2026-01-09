@@ -9,16 +9,13 @@ import ScatterplotView from '@components/LayerViews/ScatterplotView';
 import ActivationHeatmapView from '@components/LayerViews/ActivationHeatmapView';
 import JaccardSimilarityView from '@components/LayerViews/JaccardSimilarityView';
 import DenseArgmax from '@components/LayerViews/DenseArgmax';
-import LayerOutEdges from '@components/LayerOutEdges';
 import { useAppSelector } from '@hooks';
 import { selectAnalysisResult } from '@features/analyzeSlice';
 import HierarchyTree from '@components/LayerViews/HierarchyTree';
 
 
-function LayerNode({ id, data }: { id: string, data: Node }) {
+function LayerNode({ id: _id, data }: { id: string, data: Node }) {
     const analysisResult = useAppSelector(selectAnalysisResult)
-    
-    const HEATMAP_HEIGHT_FACTOR = 5
     
     return (
         <div style={{

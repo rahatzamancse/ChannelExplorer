@@ -36,7 +36,7 @@ function JaccardSimilarityView({ node, width, height }: { node: Node, width: num
     const jDist = calculatePairwiseJaccard(finalHeatmap)
     
     // Get maximum and minimum from jDist
-    const maxJDist = Math.max(...jDist.map(col => Math.max(...col.map(item => item.similarity))))
+    const _maxJDist = Math.max(...jDist.map(col => Math.max(...col.map(item => item.similarity))))
     const minJDist = Math.min(...jDist.map(col => Math.min(...col.map(item => item.similarity))))
     
     // Get maximum but skip 1s
@@ -122,7 +122,7 @@ function JaccardSimilarityView({ node, width, height }: { node: Node, width: num
                 {/* Add title for each class */}
                 {analyzeResult.selectedClasses.map((label, i) => (
                     <text key={i}
-                        textAnchor='bottom'
+                        textAnchor='start'
                         style={{
                             fontSize: "10px",
                         }}
@@ -138,7 +138,7 @@ function JaccardSimilarityView({ node, width, height }: { node: Node, width: num
                 {/* Add title for each class */}
                 {analyzeResult.selectedClasses.map((label, i) => (
                     <text key={i}
-                        textAnchor='right'
+                        textAnchor='end'
                         style={{
                             transformOrigin: `0% 0%`,
                             fontSize: "10px",

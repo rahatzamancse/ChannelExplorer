@@ -5,6 +5,15 @@ import tensorflow_datasets as tfds
 import json
 import argparse
 
+# Configure GPU memory growth to avoid OOM errors
+gpus = tf.config.list_physical_devices('GPU')
+if gpus:
+    try:
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+    except RuntimeError as e:
+        print(f"GPU memory growth config failed: {e}")
+
 # MODEL, DATASET = 'inceptionv3', 'imagenet'
 MODEL, DATASET = 'vgg16', 'imagenet'
 # MODEL, DATASET = 'vgg16_filter_pruned', 'imagenet'
@@ -116,7 +125,7 @@ elif DATASET == 'fer2023':
 dataset = ds
 
 if MODEL == 'vgg16' or MODEL == 'vgg16_filter_pruned':
-    vgg16_input_shape = tf.keras.applications.vgg16.VGG16().input.shape[1:3].as_list()
+    vgg16_input_shape = list(tf.keras.applications.vgg16.VGG16().input.shape[1:3])
     @tf.function
     def preprocess(x, y):
         x = tf.image.resize(x, vgg16_input_shape, method=tf.image.ResizeMethod.BILINEAR)
@@ -141,7 +150,7 @@ if MODEL == 'vgg16' or MODEL == 'vgg16_filter_pruned':
         return x, y
 
 elif MODEL == 'inceptionv3':
-    inception_input_shape = tf.keras.applications.inception_v3.InceptionV3().input.shape[1:3].as_list()
+    inception_input_shape = list(tf.keras.applications.inception_v3.InceptionV3().input.shape[1:3])
     @tf.function
     def preprocess(x, y):
         x = tf.image.resize(x, inception_input_shape, method=tf.image.ResizeMethod.BILINEAR)
@@ -153,7 +162,7 @@ elif MODEL == 'inceptionv3':
         return x, y
 
 elif MODEL == 'simple_cnn' or MODEL == 'expression':
-    inception_input_shape = tf.keras.applications.inception_v3.InceptionV3().input.shape[1:3].as_list()
+    inception_input_shape = list(tf.keras.applications.inception_v3.InceptionV3().input.shape[1:3])
     @tf.function
     def preprocess(x, y):
         x = utils.preprocess(x, y, size=inception_input_shape)

@@ -1,7 +1,6 @@
 import React from 'react'
 import Controls from '@components/Controls'
 import GraphViewer from '@components/GraphViewer'
-import RightView from '@components/RightView'
 import { ReactFlowProvider } from 'reactflow'
 
 function MainView() {

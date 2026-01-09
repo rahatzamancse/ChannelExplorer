@@ -31,6 +31,39 @@ import tensorflow as tf
 from tensorflow import keras as K
 import tensorflow_datasets as tfds
 import keract
+
+# Monkey-patch keract for compatibility with newer Keras versions
+# The _is_compiled attribute was removed in newer Keras
+_original_evaluate = keract.keract._evaluate
+
+def _patched_evaluate(model, nodes_to_evaluate, x, y=None, auto_compile=False):
+    # Check if model is compiled using the new API
+    if not getattr(model, '_is_compiled', getattr(model, 'compiled', True)):
+        # Try to check via optimizer
+        if model.optimizer is None:
+            applications_model_names = [
+                'densenet', 'efficientnet', 'inception_resnet_v2', 'inception_v3',
+                'mobilenet', 'mobilenet_v2', 'nasnet', 'resnet', 'resnet_v2',
+                'vgg16', 'vgg19', 'xception'
+            ]
+            if model.name in applications_model_names:
+                print('Transfer learning detected. Model will be compiled with ("categorical_crossentropy", "adam").')
+                print('If you want to change the default behaviour, then do in python:')
+                print('model.name = ""')
+                model.compile(loss='categorical_crossentropy', optimizer='adam')
+            elif auto_compile:
+                model.compile(loss='categorical_crossentropy', optimizer='adam')
+            else:
+                print('Model is not compiled. Auto compilation is set to False.')
+    
+    from keras import Model as KerasModel
+    try:
+        return KerasModel(inputs=model.input, outputs=list(nodes_to_evaluate)).predict(x)
+    except Exception:
+        return KerasModel(inputs=model.input, outputs=list(nodes_to_evaluate))(x)
+
+keract.keract._evaluate = _patched_evaluate
+
 from . import utils as utils
 import umap
 from ..channelexplorer import Server

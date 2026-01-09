@@ -1,17 +1,19 @@
 import React from 'react'
-import { Card, Form } from 'react-bootstrap'
+import { Form } from 'react-bootstrap'
 import * as api from '@api'
-import ReactLassoSelect from "react-lasso-select";
+import { ReactLassoSelect } from "react-lasso-select";
 import { useAppDispatch } from '@hooks'
 import { useAppSelector } from '@hooks';
 import { selectFeatureHunt, setUploadComplete } from '@features/featureHuntSlice';
 
+type Point = { x: number; y: number };
+
 function ImageSelection() {
     const [image, setImage] = React.useState<string>()
-    const [points, setPoints] = React.useState<{ x: number; y: number }[]>([]);
+    const [points, setPoints] = React.useState<Point[]>([]);
     const [imgChanged, setImgChanged] = React.useState<boolean>(false)
     const dispatch = useAppDispatch()
-    const featureHuntState = useAppSelector(selectFeatureHunt)
+    const _featureHuntState = useAppSelector(selectFeatureHunt)
     
     React.useEffect(() => {
         api.getFeatureHuntImage()
@@ -68,10 +70,10 @@ function ImageSelection() {
                 value={points}
                 src={image}
                 imageStyle={{ width: "100%" }}
-                onChange={(path) => {
+                onChange={(path: Point[]) => {
                   setPoints(path);
                 }}
-                onComplete={(path) => {
+                onComplete={(path: Point[]) => {
                   if (!path.length) return;
                 }}
               />

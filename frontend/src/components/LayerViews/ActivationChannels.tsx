@@ -1,16 +1,12 @@
 import React from 'react'
-import Card from 'react-bootstrap/Card'
 import { Node } from '@types'
 
 import * as api from '@api'
-import { Spinner } from 'react-bootstrap'
 import { useAppSelector } from '@hooks'
 import { selectAnalysisResult } from '@features/analyzeSlice';
 import ModalImage from 'react-modal-image'
 import '@styles/layer_activation.css'
 
-
-const MAX_WIDTH = 600
 
 function ActivationChannels({ node }: { node: Node }) {
     const analyzeResult = useAppSelector(selectAnalysisResult)
@@ -19,8 +15,6 @@ function ActivationChannels({ node }: { node: Node }) {
     const [activations, setActivations] = React.useState<string[][]>([])
     const filtersPerPage = 5
     const nPages = Math.ceil(node.output_shape[3] / filtersPerPage)
-
-    const imgSize = MAX_WIDTH / nImgs
     
     React.useEffect(() => {
 

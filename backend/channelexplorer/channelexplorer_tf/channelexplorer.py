@@ -86,6 +86,7 @@ class ChannelExplorer_TF(Server):
         ] = metrics.summary_fn_dense_identity,
         log_level: Literal["info", "debug"] = "info",
         layers_to_show: list[str] | Literal["all"] = "all",
+        apply_relu: bool = True,
     ):
         """
         __init__ Creates a ChannelExplorer object for TensorFlow models.
@@ -94,6 +95,8 @@ class ChannelExplorer_TF(Server):
         :type preprocess: Callable, optional
         :param preprocess_inverse: This function is needed because the dataset is not directly stored in memory. To make it efficient, the preprocessed input is saved. So when displaying to the front-end, another function is needed to convert the input to image again for displaying. , defaults to lambdax:x
         :type preprocess_inverse: Callable, optional
+        :param apply_relu: If True, applies ReLU to Conv2D and hidden Dense layer outputs to ensure post-activation values are used. This is important for models like InceptionV3 where ReLU is a separate layer. Defaults to True.
+        :type apply_relu: bool, optional
         :return: The ChannelExplorer object.
         :rtype: ChannelExplorer
         """
@@ -106,6 +109,7 @@ class ChannelExplorer_TF(Server):
         self.summary_fn_dense = summary_fn_dense
         self.preprocess = preprocess
         self.preprocess_inv = preprocess_inverse
+        self.apply_relu = apply_relu
 
         # Setup caching
         @asynccontextmanager
@@ -746,6 +750,42 @@ class ChannelExplorer_TF(Server):
                 nested=False,
                 auto_compile=True,
             )
+            
+            # Check for negative values and print summary (only for the first image)
+            if i == 0:
+                print("\n" + "="*60)
+                print(f"ACTIVATION VALUES SUMMARY (apply_relu={self.apply_relu})")
+                print("="*60)
+                for layer_name in activation:
+                    layer = self.model.get_layer(layer_name)
+                    act_values = activation[layer_name]
+                    total_values = act_values.size
+                    negative_count = np.sum(act_values < 0)
+                    negative_percent = (negative_count / total_values) * 100
+                    min_val = act_values.min()
+                    max_val = act_values.max()
+                    layer_type = type(layer).__name__
+                    
+                    if negative_count > 0:
+                        print(f"  {layer_name} ({layer_type}):")
+                        print(f"    - Negative values: {negative_count:,} / {total_values:,} ({negative_percent:.2f}%)")
+                        print(f"    - Range: [{min_val:.4f}, {max_val:.4f}]")
+                    else:
+                        print(f"  {layer_name} ({layer_type}): No negative values (range: [{min_val:.4f}, {max_val:.4f}])")
+                print("="*60 + "\n")
+            
+            # Apply ReLU if flag is enabled
+            # This handles models where activation is defined separately from Conv2D/Dense layers
+            # For layers that already have ReLU applied, this is a no-op (ReLU(ReLU(x)) = ReLU(x))
+            if self.apply_relu:
+                for layer_name in activation:
+                    layer = self.model.get_layer(layer_name)
+                    # Apply ReLU to Conv2D and hidden Dense layers (not the final output layer)
+                    if isinstance(layer, K.layers.Conv2D):
+                        activation[layer_name] = np.maximum(0, activation[layer_name])
+                    elif isinstance(layer, K.layers.Dense) and layer_name != layers[-1]:
+                        # Don't apply ReLU to the final Dense layer (typically softmax for classification)
+                        activation[layer_name] = np.maximum(0, activation[layer_name])
 
             __datasetImgs[label_idx].append(img.numpy())
             __activations[label_idx].append(activation)

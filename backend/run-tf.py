@@ -14,8 +14,8 @@ if gpus:
     except RuntimeError as e:
         print(f"GPU memory growth config failed: {e}")
 
-# MODEL, DATASET = 'inceptionv3', 'imagenet'
-MODEL, DATASET = 'vgg16', 'imagenet'
+MODEL, DATASET = 'inceptionv3', 'imagenet'
+# MODEL, DATASET = 'vgg16', 'imagenet'
 # MODEL, DATASET = 'vgg16_filter_pruned', 'imagenet'
 
 # MODEL, DATASET = 'inceptionv3', 'imagenette'
@@ -183,10 +183,15 @@ log_level = args.log_level
 
 # summary_fn_image = metrics.summary_fn_image_percentile
 # summary_fn_image = metrics.summary_fn_image_maximum
-summary_fn_image = metrics.summary_fn_image_l2
+# summary_fn_image = metrics.summary_fn_image_l2
 # summary_fn_image = metrics.summary_fn_image_threshold_mean
 # summary_fn_image = metrics.summary_fn_image_threshold_median
-# summary_fn_image = metrics.summary_fn_image_threshold_otsu
+summary_fn_image = metrics.summary_fn_image_threshold_otsu
+
+# apply_relu: If True, applies ReLU to Conv2D/Dense outputs to ensure post-activation values.
+# Set to False to use raw activations (before ReLU).
+# This is important for models like InceptionV3 where ReLU is a separate layer.
+APPLY_RELU = False
 
 server = Cexp(
     model=model,
@@ -196,6 +201,7 @@ server = Cexp(
     preprocess_inverse=preprocess_inv,
     log_level=log_level,
     summary_fn_image=summary_fn_image,
+    apply_relu=APPLY_RELU,
     # layers_to_show=layers_to_show
 )
 

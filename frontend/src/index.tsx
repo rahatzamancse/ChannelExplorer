@@ -9,6 +9,16 @@ import { BrowserRouter as Router } from "react-router-dom"
 import 'bootstrap/dist/css/bootstrap.min.css';
 import '@styles/index.css'
 
+// Suppress benign ResizeObserver error that occurs with accordion animations
+// This error doesn't affect functionality - it just means the browser couldn't
+// deliver all resize notifications within a single animation frame
+const resizeObserverErr = (e: ErrorEvent) => {
+  if (e.message === 'ResizeObserver loop completed with undelivered notifications.') {
+    e.stopImmediatePropagation();
+  }
+};
+window.addEventListener('error', resizeObserverErr);
+
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );

@@ -45,7 +45,9 @@ function GraphViewer() {
     
     React.useEffect(() => {
         api.getModelGraph().then(modelGraph => {
-            const max_depth = modelGraph.meta.depth * 2.5
+            const nodesList = modelGraph?.nodes ?? [];
+            const edgesList = modelGraph?.edges ?? [];
+            const max_depth = (modelGraph?.meta?.depth ?? 0) * 2.5
             
             // TODO: Get the width of the model tree
             const max_width = 20
@@ -55,7 +57,7 @@ function GraphViewer() {
             
             let firstCNNSet = false
             
-            setNodes(modelGraph.nodes.map(node => {
+            setNodes(nodesList.map(node => {
                 const resNode = {
                     id: node.id,
                     position: { 
@@ -82,7 +84,7 @@ function GraphViewer() {
                 }
                 return resNode
             }))
-            setEdges(modelGraph.edges.map(edge => ({
+            setEdges(edgesList.map(edge => ({
                 id: `${edge.source}-${edge.target}`,
                 source: edge.source,
                 target: edge.target,

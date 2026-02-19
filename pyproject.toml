@@ -1,0 +1,45 @@
+[project]
+name = "channelexplorer"
+version = "0.2.0"
+description = "Neural network activation channel explorer for TensorFlow and PyTorch"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+authors = [
+    { name = "Rahat Zaman", email = "rahatzamancse@gmail.com" },
+]
+dependencies = [
+    "fastapi>=0.128.0",
+    "grandalf>=0.8",
+    "networkx>=3.4.2",
+    "nptyping>=2.5.0",
+    "pillow>=12.1.0",
+    "pyclustering>=0.10.1.2",
+    "redis>=7.1.0",
+    "scikit-learn>=1.7.2",
+    "tqdm>=4.67.1",
+    "umap-learn>=0.5.9.post2",
+    "uvicorn>=0.40.0",
+    "pydot>=4.0.1",
+]
+
+[project.optional-dependencies]
+tf = [
+    "tensorflow[and-cuda]>=2.18.1",
+    "tensorflow-datasets>=4.9.9",
+    "keract>=4.5.2",
+]
+torch = [
+    "torch>=2.0",
+    "torchvision>=0.15",
+]
+all = [
+    "channelexplorer[tf]",
+    "channelexplorer[torch]",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/channelexplorer"]

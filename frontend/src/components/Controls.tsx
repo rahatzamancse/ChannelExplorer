@@ -18,7 +18,7 @@ function Controls() {
     const analysisResult = useAppSelector(selectAnalysisResult)
     const [inputImages, setInputImages] = React.useState<string[]>([])
     const [shuffled, setShuffled] = React.useState<boolean>(false)
-    const [nExamplePerClass, setNExamplePerClass] = React.useState<number>(15)
+    const [nExamplePerClass, setNExamplePerClass] = React.useState<number>(5)
     const [curClassProgressSelected, setCurClassProgressSelected] = React.useState<number>(0)
     const { setIsOpen } = useTour();
 
@@ -56,7 +56,7 @@ function Controls() {
     const dispatch = useAppDispatch()
 
     React.useEffect(() => {
-        api.analyze([0, 1, 2, 3], 15, false)
+        api.analyze([0, 1, 2, 3], 5, false)
             .then(({ message, task_id }) => {
                 checkTaskStatus(task_id)
             })

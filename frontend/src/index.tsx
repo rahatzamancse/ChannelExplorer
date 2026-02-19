@@ -15,9 +15,10 @@ import '@styles/index.css'
 const resizeObserverErr = (e: ErrorEvent) => {
   if (e.message === 'ResizeObserver loop completed with undelivered notifications.') {
     e.stopImmediatePropagation();
+    e.preventDefault();
   }
 };
-window.addEventListener('error', resizeObserverErr);
+window.addEventListener('error', resizeObserverErr, true);
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement

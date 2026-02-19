@@ -11,27 +11,33 @@ export function getModelGraph(): Promise<ModelGraph> {
         // body: JSON.stringify({})
     })
         .then(response => response.json())
-        .then(data => ({
-            nodes: data.graph.nodes.map((node: any) => ({
-                id: node.id,
-                label: node.label,
-                layer_type: node.layer_type,
-                name: node.name,
-                input_shape: node.input_shape,
-                kernel_size: node.kernel_size,
-                output_shape: node.output_shape,
-                tensor_type: node.tensor_type,
-                pos: node.pos? { x: node.pos.x, y: node.pos.y } : undefined,
-                out_edge_weight: data.edge_weights[node.name],
-            })),
-            edges: data.graph.links.map((edge: any) => ({
-                source: edge.source,
-                target: edge.target,
-            })),
-            meta: {
-                depth: data.meta.depth,
-            },
-        }))
+        .then(data => {
+            const graph = data?.graph ?? {};
+            const nodes = Array.isArray(graph?.nodes) ? graph.nodes : [];
+            const links = Array.isArray(graph?.links) ? graph.links : [];
+            const edgeWeights = data?.edge_weights ?? {};
+            return {
+                nodes: nodes.map((node: any) => ({
+                    id: node.id,
+                    label: node.label,
+                    layer_type: node.layer_type,
+                    name: node.name,
+                    input_shape: node.input_shape,
+                    kernel_size: node.kernel_size,
+                    output_shape: node.output_shape,
+                    tensor_type: node.tensor_type,
+                    pos: node.pos ? { x: node.pos.x, y: node.pos.y } : undefined,
+                    out_edge_weight: edgeWeights[node.name],
+                })),
+                edges: links.map((edge: any) => ({
+                    source: edge.source,
+                    target: edge.target,
+                })),
+                meta: {
+                    depth: data?.meta?.depth ?? 0,
+                },
+            };
+        })
 }
 
 export function saveDataset(): Promise<string> {
@@ -69,7 +75,7 @@ export function getLabels(): Promise<string[]> {
         headers: { "Content-Type": "application/json" },
     })
         .then(response => response.json())
-        .then(data => data)
+        .then(data => (Array.isArray(data) ? data : []))
 }
 
 export function getFeatureHuntImage(): Promise<string> {

@@ -7,6 +7,16 @@ import uvicorn
 from fastapi.staticfiles import StaticFiles
 from typing import Literal, Callable, Any, Dict
 import numpy as np
+
+# NumPy 2.x removed numpy.warnings; pyclustering still uses it.
+if not hasattr(np, "warnings"):
+    import warnings as _warnings
+
+    def _numpy_filterwarnings(*args, **kwargs):
+        return _warnings.filterwarnings(*args, **kwargs)
+
+    np.warnings = type("_NumpyWarningsShim", (), {"filterwarnings": staticmethod(_numpy_filterwarnings)})()
+
 from fastapi import FastAPI, File, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -66,7 +76,7 @@ keract.keract._evaluate = _patched_evaluate
 
 from . import utils as utils
 import umap
-from ..channelexplorer import Server
+from ..server import Server
 
 
 class ChannelExplorer_TF(Server):

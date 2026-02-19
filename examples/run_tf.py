@@ -4,6 +4,9 @@ import tensorflow as tf
 import tensorflow_datasets as tfds
 import json
 import argparse
+from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).resolve().parent
 
 # Configure GPU memory growth to avoid OOM errors
 gpus = tf.config.list_physical_devices('GPU')
@@ -74,7 +77,7 @@ if DATASET == 'imagenet':
         data_dir='/home/insane/U/NN Activation/imagenet'
     )
     
-    labels = json.load(open('./imagenet_simplified_labels.json'))
+    labels = json.load(open(SCRIPT_DIR / 'imagenet_simplified_labels.json'))
 
     ds = ds['train']
 elif DATASET.startswith('eval'):

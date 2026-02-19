@@ -1,4 +1,4 @@
-from backend.apalysis_torch import APAnalysisTorchModel
+from channelexplorer.channelexplorer_torch import APAnalysisTorchModel
 import torch
 import torchvision.models as models
 import torchvision.datasets as datasets

@@ -8,4 +8,12 @@ Main Classes:
 - channelexplorer_torch: channelexplorer module for PyTorch.
 """
 
-from .channelexplorer_tf import ChannelExplorer_TF
+try:
+    from .channelexplorer_tf import ChannelExplorer_TF
+except ImportError:
+    pass
+
+try:
+    from .channelexplorer_torch import APAnalysisTorchModel
+except ImportError:
+    pass

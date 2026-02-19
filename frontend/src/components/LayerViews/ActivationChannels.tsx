@@ -8,7 +8,7 @@ import ModalImage from 'react-modal-image'
 import '@styles/layer_activation.css'
 
 
-function ActivationChannels({ node }: { node: Node }) {
+const ActivationChannels = React.memo(function ActivationChannels({ node }: { node: Node }) {
     const analyzeResult = useAppSelector(selectAnalysisResult)
     const nImgs = analyzeResult.selectedClasses.length * analyzeResult.examplePerClass
     const [currentPage, setCurrentPage] = React.useState<number>(0)
@@ -77,41 +77,6 @@ function ActivationChannels({ node }: { node: Node }) {
             <button onClick={nextPage} disabled={currentPage === nPages-1}>Next</button>
         </div>
     </div>
-
-    // return activations.length > 0 ? <div style={{
-    //     display: "flex",
-    //     flexDirection: "column",
-    //     width: "100%",
-    //     overflowY: "scroll",
-    //     overflowX: "hidden",
-    // }}>
-    //     <div style={{
-    //         display: "flex",
-    //         flexWrap: "wrap",
-    //         justifyContent: "center",
-    //     }}>
-    //         {activations.map((image, i) => <ModalImage className='raw-activation-img' hideZoom={false} key={i} small={image} large={image} style={{
-    //             width: `${imgSize}px`,
-    //             height: `${imgSize}px`,
-    //             objectFit: "contain",
-    //             margin: "0"
-    //         }} />)}
-    //     </div>
-    //     <div style={{
-    //         display: "flex",
-    //         justifyContent: "center",
-    //         alignItems: "center",
-    //         marginTop: "10px"
-    //     }}>
-    //         <button onClick={prevPage} disabled={currentPage === 0}>Previous</button>
-    //         {/* Add page numbers */}
-    //         <span style={{padding: "0 10px"}}>{currentPage+1}/{nPages}</span>
-    //         <button onClick={nextPage} disabled={currentPage === nPages-1}>Next</button>
-    //     </div>
-
-    // </div > : <Spinner animation="border" role="status" style={{ marginLeft: '40%' }}>
-    //     <span className="visually-hidden">Loading...</span>
-    // </Spinner>
-}
+})
 
 export default ActivationChannels

@@ -11,7 +11,7 @@ import ModalImage from 'react-modal-image';
 import '@styles/control.css'
 import '@styles/scrollbar.css'
 
-function Controls() {
+const Controls = React.memo(function Controls() {
     const [isProcessing, setIsProcessing] = React.useState<boolean>(false)
     const [processingMessage, setProcessingMessage] = React.useState<string>("")
     const [classes, setClasses] = React.useState<string[]>([])
@@ -22,9 +22,22 @@ function Controls() {
     const [curClassProgressSelected, setCurClassProgressSelected] = React.useState<number>(0)
     const { setIsOpen } = useTour();
 
-    const checkTaskStatus = async (task_id: string) => {
+    const dispatch = useAppDispatch()
+
+    const checkboxRefs = React.useRef<HTMLInputElement[]>([])
+    const nExamplePerClassRef = React.useRef<HTMLInputElement>(null)
+    const pollTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+    const [progressValues, setProgressValues] = React.useState<number[]>(classes.map(() => 0))
+
+    React.useEffect(() => {
+        return () => {
+            if (pollTimerRef.current) clearTimeout(pollTimerRef.current)
+        }
+    }, [])
+
+    const checkTaskStatus = React.useCallback((task_id: string) => {
         setIsProcessing(true)
-        setTimeout(() => {
+        pollTimerRef.current = setTimeout(() => {
             api.getTaskStatus(task_id).then((res) => {
                 if(res.payload === null) {
                     setProcessingMessage(res.message)
@@ -32,6 +45,7 @@ function Controls() {
                 } else {
                     setIsProcessing(false)
                     setProcessingMessage(res.message)
+                    pollTimerRef.current = null
 
                     dispatch(setAnalysisResult(res.payload))
                     api.getInputImages([...Array(res.payload.selectedClasses.length*res.payload.examplePerClass).keys()]).then(setInputImages)
@@ -47,13 +61,7 @@ function Controls() {
                 }
             })
         }, 1000)
-    }
-
-    const checkboxRefs = React.useRef<HTMLInputElement[]>([])
-    const nExamplePerClassRef = React.useRef<HTMLInputElement>(null)
-    const [progressValues, setProgressValues] = React.useState<number[]>(classes.map(() => 0))
-
-    const dispatch = useAppDispatch()
+    }, [dispatch, setIsOpen])
 
     React.useEffect(() => {
         api.analyze([0, 1, 2, 3], 5, false)
@@ -308,7 +316,7 @@ function Controls() {
     
 
     </>
-}
+})
 
 export default Controls
             

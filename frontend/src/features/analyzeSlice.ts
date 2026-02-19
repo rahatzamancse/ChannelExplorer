@@ -29,7 +29,6 @@ export const analysisResultSlice = createSlice({
         setAnalysisResult: (state, action: PayloadAction<AnalysisConfig>) => {
             state.selectedClasses = action.payload.selectedClasses
             state.examplePerClass = action.payload.examplePerClass
-            state.selectedClasses = action.payload.selectedClasses
             state.shuffled = action.payload.shuffled
             state.predictions = action.payload.predictions
         },

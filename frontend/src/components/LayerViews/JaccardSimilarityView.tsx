@@ -12,7 +12,7 @@ import {
     calculatePairwiseJaccard 
 } from '@utils/heatmapProcessing'
 
-function JaccardSimilarityView({ node, width, height }: { node: Node, width: number, height: number }) {
+const JaccardSimilarityView = React.memo(function JaccardSimilarityView({ node, width, height }: { node: Node, width: number, height: number }) {
     const [heatmap, setHeatmap] = React.useState<number[][]>([])
     const svgRef = React.useRef<SVGSVGElement>(null)
     const analyzeResult = useAppSelector(selectAnalysisResult)
@@ -29,37 +29,39 @@ function JaccardSimilarityView({ node, width, height }: { node: Node, width: num
         api.getLabels().then(setClassLabels)
     }, [node.name, analyzeResult])
 
-    if (heatmap.length === 0) return null
-    const nExamples = analyzeResult.examplePerClass * analyzeResult.selectedClasses.length
+    const computed = React.useMemo(() => {
+        if (heatmap.length === 0) return null
+        const nExamples = analyzeResult.examplePerClass * analyzeResult.selectedClasses.length
+            
+        const finalHeatmap = filterTopChannels(normalizeHeatmap(heatmap))
+        const jDist = calculatePairwiseJaccard(finalHeatmap)
         
-    const finalHeatmap = filterTopChannels(normalizeHeatmap(heatmap))
-    const jDist = calculatePairwiseJaccard(finalHeatmap)
-    
-    // Get maximum and minimum from jDist
-    const _maxJDist = Math.max(...jDist.map(col => Math.max(...col.map(item => item.similarity))))
-    const minJDist = Math.min(...jDist.map(col => Math.min(...col.map(item => item.similarity))))
-    
-    // Get maximum but skip 1s
-    const maxJDistWithout1 = Math.max(...jDist.map(col => Math.max(...col.map(item => 
-        item.similarity === 1 ? 0 : item.similarity))))
+        const minJDist = Math.min(...jDist.map(col => Math.min(...col.map(item => item.similarity))))
+        const maxJDistWithout1 = Math.max(...jDist.map(col => Math.max(...col.map(item => 
+            item.similarity === 1 ? 0 : item.similarity))))
 
-    // Colorscale for jDist heatmap
-    const jDistColorScale = d3.scaleLinear()
-        .domain([minJDist, maxJDistWithout1])
-        .range([0, 1])
-        .clamp(true)
+        const jDistColorScale = d3.scaleLinear()
+            .domain([minJDist, maxJDistWithout1])
+            .range([0, 1])
+            .clamp(true)
 
-    const jDistColors = jDist.map(col => col.map(item => d3.interpolateBlues(jDistColorScale(item.similarity))))
-    
-    const cellWidth = (width - svgPadding.left - svgPadding.right) / nExamples
-    const cellHeight = (height - svgPadding.top - svgPadding.bottom) / nExamples
+        const jDistColors = jDist.map(col => col.map(item => d3.interpolateBlues(jDistColorScale(item.similarity))))
+        
+        const cellWidth = (width - svgPadding.left - svgPadding.right) / nExamples
+        const cellHeight = (height - svgPadding.top - svgPadding.bottom) / nExamples
 
-    const labelScale = d3.scaleLinear()
-        .domain([0, analyzeResult.selectedClasses.length - 1])
-        .range([
-            svgPadding.left + (cellWidth * analyzeResult.examplePerClass) / 2,
-            width - (cellWidth * analyzeResult.examplePerClass) / 2 - svgPadding.right,
-        ])
+        const labelScale = d3.scaleLinear()
+            .domain([0, analyzeResult.selectedClasses.length - 1])
+            .range([
+                svgPadding.left + (cellWidth * analyzeResult.examplePerClass) / 2,
+                width - (cellWidth * analyzeResult.examplePerClass) / 2 - svgPadding.right,
+            ])
+
+        return { nExamples, jDist, jDistColors, cellWidth, cellHeight, labelScale }
+    }, [heatmap, analyzeResult, width, height, svgPadding])
+
+    if (!computed) return null
+    const { nExamples: _nExamples, jDist, jDistColors, cellWidth, cellHeight, labelScale } = computed
         
         
     
@@ -98,24 +100,24 @@ function JaccardSimilarityView({ node, width, height }: { node: Node, width: num
             </g>
             <g>
                 {/* Add a line seperator between each class */}
-                {Array.from({ length: analyzeResult.selectedClasses.length-1 }, (_, i) => <>
-                    <line
-                        key={i+'v'}
-                        x1={labelScale(i + 1) - (cellWidth * analyzeResult.examplePerClass) / 2}
-                        y1={svgPadding.top}
-                        x2={labelScale(i + 1) - (cellWidth * analyzeResult.examplePerClass) / 2}
-                        y2={height - svgPadding.bottom}
-                        stroke="black"
-                    />
-                    <line
-                        key={i+'h'}
-                        x1={svgPadding.top}
-                        y1={labelScale(i + 1) - (cellWidth * analyzeResult.examplePerClass) / 2}
-                        x2={height - svgPadding.bottom}
-                        y2={labelScale(i + 1) - (cellWidth * analyzeResult.examplePerClass) / 2}
-                        stroke="black"
-                    />
-                </>)}
+                {Array.from({ length: analyzeResult.selectedClasses.length-1 }, (_, i) => (
+                    <React.Fragment key={i}>
+                        <line
+                            x1={labelScale(i + 1) - (cellWidth * analyzeResult.examplePerClass) / 2}
+                            y1={svgPadding.top}
+                            x2={labelScale(i + 1) - (cellWidth * analyzeResult.examplePerClass) / 2}
+                            y2={height - svgPadding.bottom}
+                            stroke="black"
+                        />
+                        <line
+                            x1={svgPadding.top}
+                            y1={labelScale(i + 1) - (cellWidth * analyzeResult.examplePerClass) / 2}
+                            x2={height - svgPadding.bottom}
+                            y2={labelScale(i + 1) - (cellWidth * analyzeResult.examplePerClass) / 2}
+                            stroke="black"
+                        />
+                    </React.Fragment>
+                ))}
             </g>
             </g>
             <g>
@@ -152,27 +154,7 @@ function JaccardSimilarityView({ node, width, height }: { node: Node, width: num
                     </text>
                 ))}
             </g>
-            <g>
-                {/* Add a highlighting line above and below the rects of hoveredRow */}
-                {/* {hoveredRow !== -1 && (
-                    <>
-                        <line
-                            x1={svgPadding.left}
-                            y1={svgPadding.top + hoveredRow * cellHeight}
-                            x2={width - svgPadding.right}
-                            y2={svgPadding.top + hoveredRow * cellHeight}
-                            stroke="yellow"
-                        />
-                        <line
-                            x1={svgPadding.left}
-                            y1={svgPadding.top + (hoveredRow + 1) * cellHeight}
-                            x2={width - svgPadding.right}
-                            y2={svgPadding.top + (hoveredRow + 1) * cellHeight}
-                            stroke="yellow"
-                        />
-                    </>
-                )} */}
-            </g>
+            <g />
         </svg>
         {hoveredItem[0] !== -1 && <ImageToolTip
             imgs={hoveredItem}
@@ -181,6 +163,6 @@ function JaccardSimilarityView({ node, width, height }: { node: Node, width: num
             label={`Jaccard similarity: ${jDist[hoveredItem[0]][hoveredItem[1]].intersection}/${jDist[hoveredItem[0]][hoveredItem[1]].union}`}
         />}
     </>
-}
+})
 
 export default JaccardSimilarityView

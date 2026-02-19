@@ -61,7 +61,7 @@ const LegendItem = ({ color, counts, scale, unitBarWidth = 10, height = 20 }: {
     </g>
 };
 
-function ScatterplotView({ node }: { node: Node }) {
+const ScatterplotView = React.memo(function ScatterplotView({ node }: { node: Node }) {
     const analysisResult = useAppSelector(selectAnalysisResult)
     const [truePred, setTruePred] = React.useState<boolean[]>([])
     const [coords, setCoords] = React.useState<[number, number][]>([])
@@ -404,6 +404,6 @@ function ScatterplotView({ node }: { node: Node }) {
             </div>
         </div>
     ) : <></>
-}
+})
 
 export default ScatterplotView

@@ -26,7 +26,7 @@ type ClusterNode = {
     classIdx?: number
 }
 
-function HierarchyTree({ node }: HierarchyTreeProps) {
+const HierarchyTree = React.memo(function HierarchyTree({ node }: HierarchyTreeProps) {
     const [heatmap, setHeatmap] = React.useState<number[][]>([])
     const [classLabels, setClassLabels] = React.useState<string[]>([])
     const analyzeResult = useAppSelector(selectAnalysisResult)
@@ -392,6 +392,6 @@ function HierarchyTree({ node }: HierarchyTreeProps) {
             }
         </div>
     </>
-}
+})
 
 export default HierarchyTree;

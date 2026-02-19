@@ -1,21 +1,18 @@
-from itertools import combinations
-import numpy as np
-from typing import Callable, Dict, Any
-from ast import literal_eval
-import re
-import networkx as nx
-from matplotlib import pyplot as plt
-from PIL import Image, ImageDraw
-from .types import NodeInfo, IMAGE_TYPE, GRAY_IMAGE_TYPE
-import grandalf
-from grandalf.layouts import SugiyamaLayout
-from PIL import Image, ImageDraw
-from itertools import combinations
-from typing import Callable
-import time
-import uuid
 import pathlib
 import shutil
+import time
+import uuid
+from itertools import combinations
+from typing import Callable, Dict, Any
+
+import grandalf.utils
+import grandalf.layouts
+import networkx as nx
+import numpy as np
+from matplotlib import pyplot as plt
+from PIL import Image, ImageDraw
+
+from .types import NodeInfo, IMAGE_TYPE, GRAY_IMAGE_TYPE
 
 def makedir(path):
     try:
@@ -24,7 +21,7 @@ def makedir(path):
         pass
     
 def delete_dir(path):
-    shutil.rmtree('path', ignore_errors=True)
+    shutil.rmtree(path, ignore_errors=True)
     
 def zip_dir(path, name: str):
     import shutil

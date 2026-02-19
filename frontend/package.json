@@ -6,64 +6,42 @@
     "@floating-ui/react": "^0.27.16",
     "@reactour/tour": "^3.8.0",
     "@reduxjs/toolkit": "^2.11.2",
+    "@tanstack/react-query": "^5.90.21",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.1",
     "@testing-library/user-event": "^14.6.1",
+    "@xyflow/react": "^12.10.1",
     "bootstrap": "^5.3.8",
     "d3": "^7.9.0",
     "d3-polygon": "^3.0.1",
     "html-to-image": "^1.11.13",
+    "next": "^16.1.6",
     "react": "^19.2.3",
     "react-bootstrap": "^2.10.10",
     "react-dom": "^19.2.3",
     "react-lasso-select": "^2.0.3",
     "react-modal-image": "^2.6.0",
     "react-redux": "^9.2.0",
-    "react-router-bootstrap": "^0.26.3",
-    "react-router-dom": "^7.12.0",
     "react-tooltip": "^5.30.0",
-    "reactflow": "^11.11.4",
     "typescript": "^5.9.3",
     "web-vitals": "^5.1.0"
   },
   "scripts": {
-    "start": "craco start",
-    "build": "craco build",
-    "test": "craco test",
-    "eject": "craco eject"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
   },
   "devDependencies": {
-    "@craco/craco": "^7.1.0",
-    "@craco/types": "^7.1.0",
     "@types/d3": "^7.4.3",
     "@types/jest": "^30.0.0",
     "@types/node": "^25.0.3",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@types/react-modal-image": "^2.6.4",
-    "@types/react-router-bootstrap": "^0.26.8",
     "@typescript-eslint/parser": "^8.52.0",
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import": "^2.32.0",
-    "react-scripts": "^5.0.1",
     "tsc-alias": "^1.8.16"
   },
   "pnpm": {

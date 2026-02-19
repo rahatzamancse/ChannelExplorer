@@ -15,6 +15,7 @@ dependencies = [
     "pillow>=12.1.0",
     "pyclustering>=0.10.1.2",
     "redis>=7.1.0",
+    "scipy>=1.14.0",
     "scikit-learn>=1.7.2",
     "tqdm>=4.67.1",
     "umap-learn>=0.5.9.post2",

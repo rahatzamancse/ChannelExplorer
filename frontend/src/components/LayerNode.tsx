@@ -1,5 +1,5 @@
 import React from 'react';
-import { Handle, Position } from 'reactflow';
+import { Handle, Position } from '@xyflow/react';
 import { Node } from '@types';
 import { NodeColors } from '@utils/utils';
 import { Card, Accordion } from 'react-bootstrap';
@@ -14,7 +14,7 @@ import { selectAnalysisResult } from '@features/analyzeSlice';
 import HierarchyTree from '@components/LayerViews/HierarchyTree';
 
 
-function LayerNode({ id: _id, data }: { id: string, data: Node }) {
+const LayerNode = React.memo(function LayerNode({ id: _id, data }: { id: string, data: Node }) {
     const analysisResult = useAppSelector(selectAnalysisResult)
     
     return (
@@ -80,6 +80,6 @@ function LayerNode({ id: _id, data }: { id: string, data: Node }) {
             <Handle type="source" position={data.layout_horizontal?Position.Right:Position.Bottom} />
         </div>
     );
-}
+})
 
 export default LayerNode;

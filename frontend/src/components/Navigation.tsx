@@ -1,28 +1,25 @@
+'use client'
+
 import { useTour } from '@reactour/tour'
 import React from 'react'
-import {Navbar, Nav } from 'react-bootstrap'
-import { LinkContainer } from 'react-router-bootstrap'
+import { Navbar, Nav } from 'react-bootstrap'
+import Link from 'next/link'
 
 function Navigation() {
     const { setIsOpen } = useTour()
     return (
         <Navbar bg="light">
-            <LinkContainer to="/" style={{ marginLeft: "30px" }}>
+            <Link href="/" style={{ marginLeft: "30px", textDecoration: "none" }}>
                 <Navbar.Brand>ChannelExplorer</Navbar.Brand>
-            </LinkContainer>
+            </Link>
             <Navbar.Toggle aria-controls="basic-navbar-nav" />
             <Navbar.Collapse id="basic-navbar-nav">
                 <Nav style={{
                     marginLeft: "auto",
                     marginRight: "30px"
                 }}>
-                    {/* <LinkContainer to="/featurehunt">
-                        <Nav.Link>Feature Hunt</Nav.Link>
-                    </LinkContainer> */}
                     <Nav.Link className='tutorial-tutorial' onClick={() => setIsOpen(true)}>Tutorial</Nav.Link>
-                    <LinkContainer to="/about">
-                        <Nav.Link>About</Nav.Link>
-                    </LinkContainer>
+                    <Nav.Link as={Link} href="/about">About</Nav.Link>
                 </Nav>
             </Navbar.Collapse>
         </Navbar>

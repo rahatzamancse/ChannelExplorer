@@ -12,3 +12,7 @@ env/
 analysis/saved_model/
 analysis/model.png
 dist/
+
+# Next.js
+frontend/.next/
+frontend/out/

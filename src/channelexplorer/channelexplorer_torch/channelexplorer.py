@@ -1,6 +1,7 @@
+import asyncio
 import json
 import pathlib
-from threading import Thread
+from threading import Thread, Lock
 from fastapi.concurrency import asynccontextmanager
 from sklearn.cluster import KMeans
 import torch
@@ -8,16 +9,14 @@ import uvicorn
 from fastapi.staticfiles import StaticFiles
 from typing import Literal, Callable, Any, Dict, Tuple
 import numpy as np
-from nptyping import NDArray, Int, Float, Shape
-# from beartype import beartype
-from fastapi import FastAPI, File, Response
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from . import utils as utils
-from tqdm import tqdm
 import io
 from PIL import Image
 from sklearn.preprocessing import normalize
 from sklearn import manifold
+from scipy.spatial.distance import pdist, squareform
 from ..types import IMAGE_BATCH_TYPE, DENSE_BATCH_TYPE, SUMMARY_BATCH_TYPE, IMAGE_TYPE
 from .. import metrics
 
@@ -64,6 +63,7 @@ class APAnalysisTorchModel:
             allow_headers=["*"],
         )
         self.model_graph = utils.parse_model_graph(model, input_shape)
+        self._lock = Lock()
         self.shuffled = False
         self.label_names = label_names
         self.labels: list[int] = []
@@ -143,31 +143,21 @@ class APAnalysisTorchModel:
 
         @self.app.get("/api/analysis/layer/{layer_name}/embedding")
         async def analysisLayerEmbedding(layer_name: str, normalization: Literal['none', 'row', 'col'] = 'none', method: Literal['mds', 'tsne'] = "mds", distance: Literal['euclidean', 'jaccard'] = "euclidean"):
-            this_activation = [activation[layer_name]
-                               for activation in self.activationsSummary]
-            this_activation = np.array(this_activation)
+            this_activation = np.array([
+                activation[layer_name] for activation in self.activationsSummary
+            ]).reshape(len(self.activationsSummary), -1)
 
             if normalization == 'row':
                 this_activation = normalize(this_activation, axis=1, norm='l1')
             elif normalization == 'col':
                 this_activation = normalize(this_activation, axis=0, norm='l1')
 
-            act_dist_mat = np.zeros((len(this_activation), len(this_activation)))
-
-            for i, acti in tqdm(enumerate(this_activation), total=len(this_activation)):
-                for j, actj in enumerate(this_activation):
-                    if i == j:
-                        act_dist_mat[i, j] = 0
-                        continue
-                    if i > j:
-                        continue
-                    if distance == 'euclidean':
-                        act_dist_mat[i, j] = utils.single_activation_distance(acti, actj)
-                    elif distance == 'jaccard':
-                        act_dist_mat[i, j] = utils.single_activation_jaccard_distance(
-                            acti, actj)
-
-                    act_dist_mat[j, i] = act_dist_mat[i, j]
+            if distance == 'euclidean':
+                act_dist_mat = squareform(pdist(this_activation, metric='cityblock'))
+            elif distance == 'jaccard':
+                binary = (this_activation > 0.5).astype(np.float64)
+                act_dist_mat = squareform(pdist(binary, metric='jaccard'))
+                act_dist_mat = np.nan_to_num(act_dist_mat, nan=0.0)
 
             if method == 'mds':
                 embedding_model = manifold.MDS(
@@ -176,56 +166,27 @@ class APAnalysisTorchModel:
                 embedding_model = manifold.TSNE(n_components=2, metric='precomputed', random_state=6, perplexity=min(
                     30, len(this_activation)-1), init='random')
             coords = embedding_model.fit_transform(act_dist_mat)
-            
-            # makedir(f'output/analysis/layer/{layer_name}')
-            # with open(f'output/analysis/layer/{layer_name}/embedding.json', 'w') as f:
-            #     json.dump(coords.tolist(), f)
-
             return coords.tolist()
 
         @self.app.get("/api/analysis/alldistances")
         async def analysisAllDistances():
-            act_dist_mat = np.zeros((len(self.activationsSummary), len(self.activationsSummary)))
-            for i, acti in tqdm(enumerate(self.activationsSummary), total=len(self.activationsSummary)):
-                for j, actj in enumerate(self.activationsSummary):
-                    if i == j:
-                        act_dist_mat[i, j] = 0
-                        continue
-                    if i > j:
-                        continue
-                    act_dist_mat[i, j] = utils.activation_distance(acti, actj)
-                    act_dist_mat[j, i] = act_dist_mat[i, j]
-                    
-            # makedir(f'output/analysis')
-            # with open(f'output/analysis/alldistances.json', 'w') as f:
-            #     json.dump(act_dist_mat.tolist(), f)
-
-            return act_dist_mat.tolist()
+            def _compute():
+                all_flat = np.array([
+                    np.concatenate([v.ravel() for v in act.values()])
+                    for act in self.activationsSummary
+                ])
+                return squareform(pdist(all_flat, metric='cityblock')).tolist()
+            return await asyncio.to_thread(_compute)
 
 
         @self.app.get("/api/analysis/layer/{layer_name}/embedding/distance")
         async def analysisLayerEmbeddingDistance(layer_name: str):
-            this_activation = [activation[layer_name]
-                               for activation in self.activationsSummary]
-            this_activation = np.array(this_activation)
-
-            act_dist_mat = np.zeros((len(this_activation), len(this_activation)))
-
-            for i, acti in tqdm(enumerate(this_activation), total=len(this_activation)):
-                for j, actj in enumerate(this_activation):
-                    if i == j:
-                        act_dist_mat[i, j] = 0
-                        continue
-                    if i > j:
-                        continue
-                    act_dist_mat[i, j] = utils.single_activation_distance(acti, actj)
-                    act_dist_mat[j, i] = act_dist_mat[i, j]
-                    
-            # makedir(f'output/analysis/layer/{layer_name}/embedding')
-            # with open(f'output/analysis/layer/{layer_name}/embedding/distance.json', 'w') as f:
-            #     json.dump(act_dist_mat.tolist(), f)
-
-            return act_dist_mat.tolist()
+            def _compute():
+                this_activation = np.array([
+                    activation[layer_name] for activation in self.activationsSummary
+                ]).reshape(len(self.activationsSummary), -1)
+                return squareform(pdist(this_activation, metric='cityblock')).tolist()
+            return await asyncio.to_thread(_compute)
 
 
         @self.app.get("/api/analysis/layer/{layer_name}/heatmap")
@@ -249,27 +210,16 @@ class APAnalysisTorchModel:
 
         @self.app.get("/api/analysis/allembedding")
         async def analysisAllEmbedding():
-            act_dist_mat = np.zeros((len(self.activationsSummary), len(self.activationsSummary)))
-            for i, acti in tqdm(enumerate(self.activationsSummary), total=len(self.activationsSummary)):
-                for j, actj in enumerate(self.activationsSummary):
-                    if i == j:
-                        act_dist_mat[i, j] = 0
-                        continue
-                    if i > j:
-                        continue
-                    act_dist_mat[i, j] = utils.activation_distance(acti, actj)
-                    act_dist_mat[j, i] = act_dist_mat[i, j]
-
-            mds = manifold.MDS(
-                n_components=2, dissimilarity="precomputed", random_state=6)
-            results = mds.fit(act_dist_mat)
-            coords = results.embedding_
-            
-            # makedir(f'output/analysis')
-            # with open(f'output/analysis/allembedding.json', 'w') as f:
-            #     json.dump(coords.tolist(), f)
-
-            return coords.tolist()
+            def _compute():
+                all_flat = np.array([
+                    np.concatenate([v.ravel() for v in act.values()])
+                    for act in self.activationsSummary
+                ])
+                act_dist_mat = squareform(pdist(all_flat, metric='cityblock'))
+                mds = manifold.MDS(
+                    n_components=2, dissimilarity="precomputed", random_state=6)
+                return mds.fit(act_dist_mat).embedding_.tolist()
+            return await asyncio.to_thread(_compute)
 
 
         @self.app.get("/api/analysis/images/{index}")
@@ -285,9 +235,6 @@ class APAnalysisTorchModel:
                 img.save(output, format="PNG")
                 content = output.getvalue()
             headers = {'Content-Disposition': 'inline; filename="test.png"'}
-            
-            # makedir(f'output/analysis/images/{index}')
-            # img.save(f'output/analysis/images/{index}/orig.png')
             return Response(content, headers=headers, media_type='image/png')
 
 
@@ -301,8 +248,6 @@ class APAnalysisTorchModel:
                 img.save(output, format="PNG")
                 content = output.getvalue()
             headers = {'Content-Disposition': 'inline; filename="test.png"'}
-            # makedir(f'output/analysis/layer/{layer_name}/{channel}')
-            # img.save(f'output/analysis/layer/{layer_name}/{channel}/kernel.png')
             return Response(content, headers=headers, media_type='image/png')
 
         @self.app.get("/api/analysis/layer/{layer_name}/cluster")
@@ -331,16 +276,12 @@ class APAnalysisTorchModel:
                 if distance_from_center[i] > mean_distance_from_center[kmeans.labels_[i]] + std_distance_form_center[kmeans.labels_[i]] * outlier_threshold:
                     outliers.append(i)
                     
-            # makedir(f'output/analysis/layer/{layer_name}')
             output = {
                 'labels': kmeans.labels_.tolist(),
                 'centers': kmeans.cluster_centers_.tolist(),
                 'distances': distance_from_center.tolist(),
                 'outliers': outliers,
             }
-            # with open(f'output/analysis/layer/{layer_name}/cluster.json', 'w') as f:
-            #     json.dump(output, f)
-
             return output
 
         @self.app.get("/api/analysis/predictions")
@@ -384,8 +325,10 @@ class APAnalysisTorchModel:
         __activationsSummary = [[] for _ in range(len(labels))]
         __datasetLabels = [[] for _ in range(len(labels))]
 
-        filter_by_labels = lambda img, label: label in labels
-            
+        BATCH_SIZE = 32
+        collected_imgs = []
+        collected_labels = []
+
         dataloader = torch.utils.data.DataLoader(
             self.dataset,
             batch_size=1,
@@ -393,124 +336,87 @@ class APAnalysisTorchModel:
             num_workers=0,
             pin_memory=True,
             drop_last=False,
-            sampler=None,
         )
-        
-        for i, (img, label) in tqdm(enumerate(dataloader)):
-            if label not in self.labels:
+
+        progress("Collecting and filtering images...")
+        for img, label in dataloader:
+            label_val = label.item()
+            if label_val not in self.labels:
                 continue
-
-            if len(__datasetImgs[labels.index(label)]) >= examplePerClass:
+            label_idx = labels.index(label_val)
+            if len(__datasetImgs[label_idx]) >= examplePerClass:
+                if all(len(dtImgs) >= examplePerClass for dtImgs in __datasetImgs):
+                    break
                 continue
-
-            progress(f"Processing image {i}/{examplePerClass*len(labels)}")
-
-            label_idx = labels.index(label)
-
-            # Get activations
-            activation = utils.get_activations(
-                self.model, img, layer_names=layers)
-            
-            # Build a mapping of layer names to layer types for ReLU application
-            layer_types = {name: type(layer).__name__ for name, layer in self.model.named_modules()}
-            
-            for k, v in activation.items():
-                activation[k] = np.moveaxis(v.numpy(), 1, -1)
-            
-            # Check for negative values and print summary (only for the first image)
-            if i == 0:
-                print("\n" + "="*60)
-                print(f"ACTIVATION VALUES SUMMARY (apply_relu={self.apply_relu})")
-                print("="*60)
-                for layer_name in activation:
-                    act_values = activation[layer_name]
-                    total_values = act_values.size
-                    negative_count = np.sum(act_values < 0)
-                    negative_percent = (negative_count / total_values) * 100
-                    min_val = act_values.min()
-                    max_val = act_values.max()
-                    layer_type = layer_types.get(layer_name, 'Unknown')
-                    
-                    if negative_count > 0:
-                        print(f"  {layer_name} ({layer_type}):")
-                        print(f"    - Negative values: {negative_count:,} / {total_values:,} ({negative_percent:.2f}%)")
-                        print(f"    - Range: [{min_val:.4f}, {max_val:.4f}]")
-                    else:
-                        print(f"  {layer_name} ({layer_type}): No negative values (range: [{min_val:.4f}, {max_val:.4f}])")
-                print("="*60 + "\n")
-                
-            # Apply ReLU if flag is enabled
-            # This handles models where activation is defined separately from Conv2d/Linear layers
-            # For layers that already have ReLU applied, this is a no-op (ReLU(ReLU(x)) = ReLU(x))
-            if self.apply_relu:
-                for layer_name in activation:
-                    layer_type = layer_types.get(layer_name, '')
-                    # Apply ReLU to Conv2d and hidden Linear layers (not the final output layer)
-                    if layer_type == 'Conv2d':
-                        activation[layer_name] = np.maximum(0, activation[layer_name])
-                    elif layer_type == 'Linear' and layer_name != layers[-1]:
-                        # Don't apply ReLU to the final Linear layer (typically softmax for classification)
-                        activation[layer_name] = np.maximum(0, activation[layer_name])
-
+            collected_imgs.append(img)
+            collected_labels.append(label_val)
             __datasetImgs[label_idx].append(img.numpy())
+            __datasetLabels[label_idx].append(label_val)
+            if all(len(dtImgs) >= examplePerClass for dtImgs in __datasetImgs):
+                break
+
+        total_images = len(collected_imgs)
+        layer_types = {name: type(layer).__name__ for name, layer in self.model.named_modules()}
+
+        progress(f"Collected {total_images} images, extracting activations in batches of {BATCH_SIZE}...")
+
+        all_activations = []
+        for batch_start in range(0, total_images, BATCH_SIZE):
+            batch_end = min(batch_start + BATCH_SIZE, total_images)
+            batch_imgs = torch.cat(collected_imgs[batch_start:batch_end], dim=0)
+
+            progress(f"Processing batch {batch_start // BATCH_SIZE + 1}/{(total_images + BATCH_SIZE - 1) // BATCH_SIZE}")
+
+            batch_activation = utils.get_activations(
+                self.model, batch_imgs, layer_names=layers)
+
+            for k, v in batch_activation.items():
+                batch_activation[k] = np.moveaxis(v.numpy(), 1, -1)
+
+            if self.apply_relu:
+                for layer_name in batch_activation:
+                    lt = layer_types.get(layer_name, '')
+                    if lt == 'Conv2d':
+                        batch_activation[layer_name] = np.maximum(0, batch_activation[layer_name])
+                    elif lt == 'Linear' and layer_name != layers[-1]:
+                        batch_activation[layer_name] = np.maximum(0, batch_activation[layer_name])
+
+            for idx_in_batch in range(batch_end - batch_start):
+                single_activation = {
+                    k: v[idx_in_batch:idx_in_batch+1] for k, v in batch_activation.items()
+                }
+                all_activations.append(single_activation)
+
+        for activation, label_val in zip(all_activations, collected_labels):
+            label_idx = labels.index(label_val)
             __activations[label_idx].append(activation)
 
             activationSummary = {}
             for k, v in activation.items():
                 if len(v[0].shape) == 1:
-                    # dense layer
                     activationSummary[k] = self.summary_fn_dense(v)[0]
                 elif len(v[0].shape) == 3:
-                    # Image layer
-                    self.summary_fn_image(v)
                     activationSummary[k] = self.summary_fn_image(v)[0]
             __activationsSummary[label_idx].append(activationSummary)
-
-            __datasetLabels[label_idx].append(label.numpy()[0].item())
-
-            if all((len(dtImgs) >= examplePerClass) for dtImgs in __datasetImgs):
-                break
-            
-            # path = f'../../saved_data/{MODEL}_{DATASET}/class-{labels[label_idx]}/{i}'
-            # makedir(path)
-
-            # bgr_image = cv2.cvtColor(utils.rescale_img(img.numpy()), cv2.COLOR_RGB2BGR)
-            # cv2.imwrite(path + f'/orig.png', bgr_image)
-            # for layer, acts in activation.items():
-            #     for batch, act in enumerate(acts):
-            #         try:
-            #             for i, x in enumerate(act.transpose(2,0,1)):
-            #                 makedir(f'{path}/{layer}')
-            #                 # cv2.imwrite(f'{path}/{layer}/{i}.png', utils.rescale_img(x))
-            #         except Exception as e:
-            #             print('ERROR: act', act.shape)
-            #             print(e)
 
 
         self.datasetImgs = [j for i in __datasetImgs for j in i]
         self.activations = [j for i in __activations for j in i]
         self.activationsSummary = [j for i in __activationsSummary for j in i]
         self.datasetLabels = [j for i in __datasetLabels for j in i]
-        
-        # for each datasetImgs, move channel to last
+
         self.datasetImgs = [np.moveaxis(img, 1, -1) for img in self.datasetImgs]
 
-        # Get the prediction with argmax
-        self.predictions = []
-        for i in range(len(self.activations)):
-            self.predictions.append(np.argmax(self.activations[i][layers[-1]][0]).item())
-            
-        output = {
+        self.predictions = [
+            np.argmax(act[layers[-1]][0]).item() for act in self.activations
+        ]
+
+        return {
             "selectedClasses": self.selectedLabels,
             "examplePerClass": len(self.datasetImgs) // len(self.selectedLabels),
             "shuffled": self.shuffled,
             "predictions": self.predictions,
         }
-        
-        # with open(f'output/analysis.json', 'w') as f:
-        #     json.dump(output, f)
-
-        return output
 
 
 

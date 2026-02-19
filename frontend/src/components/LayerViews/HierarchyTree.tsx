@@ -33,7 +33,7 @@ function HierarchyTree({ node }: HierarchyTreeProps) {
     const svgRef = React.useRef<SVGSVGElement>(null)
     const [clusters, setClusters] = React.useState<{labels: number[], centers: number[][], distances: number[], outliers: number[]} | null>(null)
     const width = 200;
-    const height = 300;
+    const height = 500;
 
     const [nodeList, setNodeList] = React.useState<ClusterNode[]>([]);
 

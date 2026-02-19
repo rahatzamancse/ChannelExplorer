@@ -16,7 +16,6 @@ import HierarchyTree from '@components/LayerViews/HierarchyTree';
 
 const LayerNode = React.memo(function LayerNode({ id: _id, data }: { id: string, data: Node }) {
     const analysisResult = useAppSelector(selectAnalysisResult)
-    
     return (
         <div style={{
             display: 'flex',

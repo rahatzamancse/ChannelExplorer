@@ -111,8 +111,12 @@ def remove_intermediate_node(G: nx.Graph, node_removal_predicate: Callable):
 
 def get_model_layout(G):
     # Sugiyama Layout from grandalf library
+    if G.number_of_nodes() == 0:
+        return {}
     g = grandalf.utils.convert_nextworkx_graph_to_grandalf(G)
     for v in g.V(): v.view = type("defaultview", (object,), {"w": 10, "h": 10})
+    if not g.C:
+        return {n: (0.0, 0.0) for n in G.nodes()}
     sug = grandalf.layouts.SugiyamaLayout(g.C[0])
     sug.init_all()
     sug.draw() # This only calculated the positions for each node.

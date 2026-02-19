@@ -20,6 +20,7 @@ const CELL_MIN_WIDTH = 12
 const CELL_SUMMARY_MIN_WIDTH = 20
 const CELL_MIN_HEIGHT = 6
 const TOP_N = 40
+const DEFAULT_TOTAL_MAX_CHANNELS = (arr: number[]) => arr.length * 0.2
 
 const sortById2Labels: Record<string, string> = {
     'none': 'None',
@@ -34,7 +35,7 @@ const ActivationHeatmapView: FC<Props> = React.memo(({
     minWidth, 
     minHeight, 
     normalizeRow = true, 
-    totalMaxChannels = (arr: number[]) => arr.length * 0.2 
+    totalMaxChannels = DEFAULT_TOTAL_MAX_CHANNELS 
 }) => {
     const [heatmap, setHeatmap] = React.useState<number[][]>([])
     const svgRef = React.useRef<SVGSVGElement>(null)

@@ -118,10 +118,28 @@ def parse_model_graph(model: K.Model, layers_to_show: Literal["all"]|list[str] =
         #           kernel.min()) * 255).astype(np.uint8)
         # img = Image.fromarray(kernel)
         
+    # Depth: max path length from input/source nodes (robust when layers_to_show filters out InputLayer)
+    source_nodes = [
+        n for n, d in simple_activation_pathway_full.nodes(data=True)
+        if d.get('layer_type') == 'InputLayer'
+    ]
+    if not source_nodes:
+        source_nodes = [
+            n for n in simple_activation_pathway_full.nodes()
+            if simple_activation_pathway_full.in_degree(n) == 0
+        ]
+    if source_nodes:
+        depth = max(
+            max(nx.shortest_path_length(simple_activation_pathway_full, src).values(), default=0)
+            for src in source_nodes
+        )
+    else:
+        depth = 0
+
     return {
         'graph': nx.node_link_data(simple_activation_pathway_full),
         'meta': {
-            'depth': max(nx.shortest_path_length(simple_activation_pathway_full, next(n for n, d in simple_activation_pathway_full.nodes(data=True) if d['layer_type'] == 'InputLayer')).values())
+            'depth': depth,
         },
         'edge_weights': kernel_norms,
     }

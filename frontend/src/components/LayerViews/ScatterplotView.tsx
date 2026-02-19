@@ -65,7 +65,7 @@ const ScatterplotView = React.memo(function ScatterplotView({ node }: { node: No
     const analysisResult = useAppSelector(selectAnalysisResult)
     const [truePred, setTruePred] = React.useState<boolean[]>([])
     const [coords, setCoords] = React.useState<[number, number][]>([])
-    const [distances, setDistances] = React.useState<number[][]>([])
+    const [distances, setDistances] = React.useState<number[][] | null>(null)
 
     const [showLines, _setShowLines] = React.useState<boolean>(false);
     const [useXMeans, setUseXMeans] = React.useState<boolean>(true);
@@ -88,9 +88,6 @@ const ScatterplotView = React.memo(function ScatterplotView({ node }: { node: No
                     }
                 })
                 setTruePred(truePredTmp)
-
-                api.getAnalysisDistanceMatrix(node.name)
-                    .then(setDistances)
             })
         })
     }, [node, analysisResult.examplePerClass, analysisResult.selectedClasses])
@@ -99,17 +96,41 @@ const ScatterplotView = React.memo(function ScatterplotView({ node }: { node: No
         api.getLabels().then(setClasses);
     }, []);
 
+    React.useEffect(() => {
+        // Distance matrix is O(n^2); fetch only when line overlay is enabled.
+        if (!showLines || distances !== null) {
+            return;
+        }
+        api.getAnalysisDistanceMatrix(node.name).then(setDistances);
+    }, [showLines, distances, node.name]);
+
+    React.useEffect(() => {
+        setDistances(null);
+        setHoveredItem(-1);
+        setClusterPaths([]);
+        setClusterMembersCount([]);
+    }, [node.name]);
+
+    const selectedImageSet = React.useMemo(
+        () => new Set(analysisResult.selectedImages),
+        [analysisResult.selectedImages]
+    );
+
+    const classAt = React.useCallback((idx: number) => (
+        analysisResult.selectedClasses[Math.floor(idx / analysisResult.examplePerClass)]?.toString() ?? ''
+    ), [analysisResult.selectedClasses, analysisResult.examplePerClass]);
+
     const xScale = React.useMemo(
-        () => d3.scaleLinear()
-            .domain([Math.min(...coords.map(x)), Math.max(...coords.map(x))])
+        () => d3.scaleLinear<number, number>()
+            .domain(d3.extent(coords, x) as [number, number])
             .range([svgMargin, 200 - svgMargin])
             .clamp(true),
         [coords],
     );
 
     const yScale = React.useMemo(
-        () => d3.scaleLinear()
-            .domain([Math.min(...coords.map(y)), Math.max(...coords.map(y))])
+        () => d3.scaleLinear<number, number>()
+            .domain(d3.extent(coords, y) as [number, number])
             .range([200 - svgMargin, svgMargin])
             .clamp(true),
         [coords],
@@ -129,19 +150,36 @@ const ScatterplotView = React.memo(function ScatterplotView({ node }: { node: No
         [clusterPaths]
     );
 
-    const opacityScale = React.useMemo(
-        () => d3.scaleLinear()
-            .domain([
-                Math.min(...distances.map((row) => Math.min(...row.filter(d => d !== 0 && isFinite(d))))),
-                Math.max(...distances.map((row) => Math.max(...row.filter(d => d !== 0 && isFinite(d))))),
-            ])
-            .range([1, 0]),
-        [distances]
-    );
+    const opacityScale = React.useMemo(() => {
+        if (!distances || distances.length === 0) {
+            return null;
+        }
+
+        let min = Number.POSITIVE_INFINITY;
+        let max = Number.NEGATIVE_INFINITY;
+
+        for (const row of distances) {
+            for (const value of row) {
+                if (value === 0 || !isFinite(value)) {
+                    continue;
+                }
+                if (value < min) min = value;
+                if (value > max) max = value;
+            }
+        }
+
+        if (!isFinite(min) || !isFinite(max)) {
+            return null;
+        }
+
+        return d3.scaleLinear()
+            .domain([min, max])
+            .range([1, 0]);
+    }, [distances]);
 
     const imageSize = 30;
 
-    return coords.length > 0 && distances.length > 0 && truePred.length > 0 ? (
+    return coords.length > 0 && truePred.length > 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div style={{ display: 'flex', gap: '20px' }}>
                 <div>
@@ -164,8 +202,8 @@ const ScatterplotView = React.memo(function ScatterplotView({ node }: { node: No
                                 />
                             ))}
                         </g>}
-                        {showLines && <g className="lines">
-                            {hoveredItem !== -1 && distances[hoveredItem].map((dist, i) => (
+                        {showLines && opacityScale && distances && <g className="lines">
+                            {hoveredItem !== -1 && distances[hoveredItem]?.map((dist, i) => (
                                 <g key={`line-${i}`}>
                                     <line
                                         x1={xScale(x(coords[hoveredItem]))}
@@ -199,7 +237,7 @@ const ScatterplotView = React.memo(function ScatterplotView({ node }: { node: No
                                             width={imageSize}
                                             height={imageSize}
                                             fill="none"
-                                            stroke={analysisResult.selectedImages.includes(i) ? 'black' : colorScale(analysisResult.selectedClasses[Math.floor(i / analysisResult.examplePerClass)].toString())}
+                                            stroke={selectedImageSet.has(i) ? 'black' : colorScale(classAt(i))}
                                             strokeWidth={3}
                                         />
                                         <image
@@ -222,7 +260,7 @@ const ScatterplotView = React.memo(function ScatterplotView({ node }: { node: No
                                         cx={xScale(x(point))}
                                         cy={yScale(y(point))}
                                         r={3}
-                                        fill={analysisResult.selectedImages.includes(i) ? 'black' : colorScale(analysisResult.selectedClasses[Math.floor(i / analysisResult.examplePerClass)].toString())}
+                                        fill={selectedImageSet.has(i) ? 'black' : colorScale(classAt(i))}
                                         stroke={hoveredItem === i ? 'red' : '#00000000'}
                                         strokeWidth={hoveredItem === -1 ? 0 : 1}
                                         data-tooltip-id="image-tooltip"

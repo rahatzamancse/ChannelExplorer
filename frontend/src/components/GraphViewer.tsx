@@ -40,6 +40,21 @@ const GraphViewer = React.memo(function GraphViewer() {
     
     const reactFlowInstance = useReactFlow();
     const flowRef = React.useRef<HTMLDivElement>(null);
+    const [translationExtent, setTranslationExtent] = React.useState<[[number, number], [number, number]]>([[-1000, -1000], [1000, 1000]]);
+    
+    const computeExtent = React.useCallback((positions: { x: number; y: number }[]): [[number, number], [number, number]] => {
+        if (positions.length === 0) return [[-1000, -1000], [1000, 1000]]
+        const minX = Math.min(...positions.map(pos => pos.x)) - 500
+        const minY = Math.min(...positions.map(pos => pos.y)) - 500
+        const maxX = Math.max(...positions.map(pos => pos.x)) + 500
+        const maxY = Math.max(...positions.map(pos => pos.y)) + 500
+        const maxRange = Math.max((maxX - minX) / 2, (maxY - minY) / 2) * 1.2
+        const center = { x: minX + (maxX - minX) / 2, y: minY + (maxY - minY) / 2 }
+        return [
+            [center.x - maxRange, center.y - maxRange],
+            [center.x + maxRange, center.y + maxRange]
+        ]
+    }, []);
     
     React.useEffect(() => {
         api.getModelGraph().then(modelGraph => {
@@ -53,7 +68,7 @@ const GraphViewer = React.memo(function GraphViewer() {
             
             let firstCNNSet = false
             
-            setNodes(nodesList.map(node => {
+            const newNodes = nodesList.map(node => {
                 const resNode = {
                     id: node.id,
                     position: { 
@@ -79,30 +94,43 @@ const GraphViewer = React.memo(function GraphViewer() {
                     resNode.data.tutorial_node = true
                 }
                 return resNode
-            }))
-            setEdges(edgesList.map(edge => ({
+            })
+            setNodes(newNodes)
+            setTranslationExtent(computeExtent(newNodes.map(n => n.position)))
+            const newEdges = edgesList.map(edge => ({
                 id: `${edge.source}-${edge.target}`,
                 source: edge.source,
                 target: edge.target,
                 animated: true,
                 label: ''
-            })))
+            }))
+            console.log('[DEBUG] setEdges called with', newEdges.length, 'edges, first:', JSON.stringify(newEdges[0]), 'nodeIds sample:', newNodes.slice(0,3).map(n => n.id))
+            setEdges(newEdges)
+            setTimeout(() => {
+                const storeEdges = reactFlowInstance.getEdges()
+                const storeNodes = reactFlowInstance.getNodes()
+                console.log('[DEBUG] Store after 2s - edges:', storeEdges.length, 'nodes:', storeNodes.length, 'first store edge:', JSON.stringify(storeEdges[0]))
+            }, 2000)
         })
     }, [])
     
     React.useEffect(() => {
-        setNodes(val => val.map(node => ({
-            ...node,
-            position: {
-                ...node.position,
-                x: node.position.y,
-                y: node.position.x
-            },
-            data: {
-                ...node.data,
-                layout_horizontal: layoutHorizontal
-            }
-        })))
+        setNodes(val => {
+            const newNodes = val.map(node => ({
+                ...node,
+                position: {
+                    ...node.position,
+                    x: node.position.y,
+                    y: node.position.x
+                },
+                data: {
+                    ...node.data,
+                    layout_horizontal: layoutHorizontal
+                }
+            }))
+            setTranslationExtent(computeExtent(newNodes.map(n => n.position)))
+            return newNodes
+        })
         
         setTimeout(() => {
             reactFlowInstance.fitView({ duration: 800 })
@@ -133,21 +161,6 @@ const GraphViewer = React.memo(function GraphViewer() {
         }
     }, [isOpen, currentStep])
 
-    const translationExtent = React.useMemo<[[number, number], [number, number]]>(() => {
-        const positions = nodes.map(node => node.position)
-        if (positions.length === 0) return [[-1000, -1000], [1000, 1000]]
-        const minX = Math.min(...positions.map(pos => pos.x)) - 500
-        const minY = Math.min(...positions.map(pos => pos.y)) - 500
-        const maxX = Math.max(...positions.map(pos => pos.x)) + 500
-        const maxY = Math.max(...positions.map(pos => pos.y)) + 500
-        const maxRange = Math.max((maxX - minX) / 2, (maxY - minY) / 2) * 1.2
-        const center = { x: minX + (maxX - minX) / 2, y: minY + (maxY - minY) / 2 }
-        return [
-            [center.x - maxRange, center.y - maxRange],
-            [center.x + maxRange, center.y + maxRange]
-        ]
-    }, [nodes])
-    
     return <div className="rsection tutorial-main-view" style={{
         display: "flex",
         width: "100%",

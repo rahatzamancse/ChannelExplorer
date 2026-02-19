@@ -33,15 +33,9 @@ MODEL, DATASET = 'inceptionv3', 'imagenet'
 # MODEL, DATASET = 'vgg16', 'eval2'
 
 # for InceptionV3
-# layers_to_show = [
-#     'input_1', 'conv2d', 'conv2d_2', 'conv2d_4', 'mixed0', 'mixed1', 'mixed2', 'mixed3', 'mixed4', 'mixed5', 'mixed6', 'mixed7', 'mixed8', 'mixed9', 'conv2d_85', 'conv2d_88', 'conv2d_87', 'mixed10', 'predictions'
-# ]
-# layers_to_show = [
-#     'input_1', 'conv2d', 'conv2d_4', 'mixed1', 'mixed3', 'mixed5', 'mixed7', 'mixed9', 'conv2d_85', 'conv2d_88', 'conv2d_87', 'mixed10', 'predictions'
-# ]
-# layers_to_show = [
-#     'input_1', 'mixed6', 'conv2d_60', 'conv2d_63', 'mixed10', 'predictions'
-# ]
+layers_to_show = [
+    'input_1', 'conv2d', 'conv2d_2', 'conv2d_4', 'mixed0', 'mixed1', 'mixed2', 'mixed3', 'mixed4', 'mixed5', 'mixed6', 'mixed7', 'mixed8', 'mixed9', 'conv2d_85', 'conv2d_88', 'conv2d_87', 'mixed10', 'predictions'
+]
 # layers_to_show = 'all'
 
 # Load a demo model
@@ -205,7 +199,7 @@ server = Cexp(
     log_level=log_level,
     summary_fn_image=summary_fn_image,
     apply_relu=APPLY_RELU,
-    # layers_to_show=layers_to_show
+    layers_to_show=layers_to_show
 )
 
 server.run(host=host, port=port)

@@ -191,7 +191,6 @@ const HierarchyTree = React.memo(function HierarchyTree({ node }: HierarchyTreeP
     // 4. Visualization effect
     React.useEffect(() => {
         if (!svgRef.current || nodeList.length === 0 || !clusters) return
-
         d3.select(svgRef.current).selectAll("*").remove()
 
         const root = d3.hierarchy(nodeList[0])
@@ -267,7 +266,8 @@ const HierarchyTree = React.memo(function HierarchyTree({ node }: HierarchyTreeP
         nodes.append("circle")
             .attr("r", 8)
             .attr("fill", d => (d.data as ClusterNode).type === 'mainclass' ? "#4CAF50" : d.data.type === 'subclass' ? "#2196F3" : "#FF9800")
-            .attr("stroke", d => (d.data as ClusterNode).id === hoveredNode?.id ? "black" : "none")
+            .attr("stroke", "none")
+            .attr("class", d => `hierarchy-circle-${(d.data as ClusterNode).id}`)
             .attr("data-tooltip-id", "image-tooltip")
             .on("mouseenter", (event, d) => setHoveredNode(d.data))
             .on("mouseleave", () => setHoveredNode(null));
@@ -356,7 +356,15 @@ const HierarchyTree = React.memo(function HierarchyTree({ node }: HierarchyTreeP
 
 
 
-    }, [nodeList, classLabels, analyzeResult.selectedClasses, width, height, clusters, hoveredNode])
+    }, [nodeList, classLabels, analyzeResult.selectedClasses, width, height, clusters])
+
+    React.useEffect(() => {
+        if (!svgRef.current) return
+        d3.select(svgRef.current).selectAll('circle').attr('stroke', 'none')
+        if (hoveredNode) {
+            d3.select(svgRef.current).selectAll(`.hierarchy-circle-${hoveredNode.id}`).attr('stroke', 'black')
+        }
+    }, [hoveredNode])
     
 
     return <>

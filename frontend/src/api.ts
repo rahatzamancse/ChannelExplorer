@@ -14,7 +14,8 @@ export function getModelGraph(): Promise<ModelGraph> {
         .then(data => {
             const graph = data?.graph ?? {};
             const nodes = Array.isArray(graph?.nodes) ? graph.nodes : [];
-            const links = Array.isArray(graph?.links) ? graph.links : [];
+            const links = Array.isArray(graph?.edges) ? graph.edges : Array.isArray(graph?.links) ? graph.links : [];
+            console.log('[DEBUG] graph keys:', Object.keys(graph), 'edges count:', links.length, 'first edge:', links[0]);
             const edgeWeights = data?.edge_weights ?? {};
             return {
                 nodes: nodes.map((node: any) => ({

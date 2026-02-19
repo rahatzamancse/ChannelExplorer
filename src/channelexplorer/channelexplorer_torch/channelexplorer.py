@@ -1,13 +1,10 @@
 import asyncio
 import json
-import pathlib
 from threading import Thread, Lock
 from fastapi.concurrency import asynccontextmanager
 from sklearn.cluster import KMeans
 import torch
-import uvicorn
-from fastapi.staticfiles import StaticFiles
-from typing import Literal, Callable, Any, Dict, Tuple
+from typing import Literal, Callable, Any
 import numpy as np
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,10 +16,13 @@ from sklearn import manifold
 from scipy.spatial.distance import pdist, squareform
 from ..types import IMAGE_BATCH_TYPE, DENSE_BATCH_TYPE, SUMMARY_BATCH_TYPE, IMAGE_TYPE
 from .. import metrics
+from pyclustering.cluster.xmeans import xmeans
 
 from ..redis_cache import redis_cache, redis_client
+from ..server import Server
 
-class APAnalysisTorchModel:
+
+class APAnalysisTorchModel(Server):
     def __init__(
         self,
         model: torch.nn.Module,
@@ -33,6 +33,7 @@ class APAnalysisTorchModel:
         summary_fn_dense: Callable[[DENSE_BATCH_TYPE], SUMMARY_BATCH_TYPE] = metrics.summary_fn_dense_identity,
         log_level: Literal["info", "debug"] = "info",
         apply_relu: bool = True,
+        layers_to_show: list[str] | Literal["all"] = "all",
     ):
         """
         :param apply_relu: If True, applies ReLU to Conv2d and hidden Linear layer outputs to ensure 
@@ -48,7 +49,7 @@ class APAnalysisTorchModel:
         self.summary_fn_image = summary_fn_image
         self.summary_fn_dense = summary_fn_dense
         self.apply_relu = apply_relu
-
+        self.layers_to_show = layers_to_show
         # Setup caching
         @asynccontextmanager
         async def lifespan(app: FastAPI):
@@ -62,7 +63,7 @@ class APAnalysisTorchModel:
             allow_methods=["*"],
             allow_headers=["*"],
         )
-        self.model_graph = utils.parse_model_graph(model, input_shape)
+        self.model_graph = utils.parse_model_graph(model, input_shape, layers_to_show)
         self._lock = Lock()
         self.shuffled = False
         self.label_names = label_names
@@ -97,9 +98,19 @@ class APAnalysisTorchModel:
             result = func(*args, **kwargs)
             redis_client.setex(task_id, 3600, json.dumps(result))
 
-        @redis_cache()
-        def cached_analysis(labels: list[int], examplePerClass: int = 5, shuffle: bool = False, _task_id: str = ""):
-            return self._analysis(labels, examplePerClass, shuffle, progress=lambda x: redis_client.set(f"{_task_id}-progress", x))
+        @redis_cache(ttl=3600 * 8)
+        def cached_analysis(
+            labels: list[int],
+            examplePerClass: int = 5,
+            shuffle: bool = False,
+            _task_id: str = "",
+        ):
+            return self._analysis(
+                labels,
+                examplePerClass,
+                shuffle,
+                progress=lambda x: redis_client.set(f"{_task_id}-progress", x),
+            )
 
         @self.app.get("/api/taskStatus")
         async def taskStatus(task_id: str):
@@ -142,29 +153,114 @@ class APAnalysisTorchModel:
             return Response(content, headers=headers, media_type='image/png')
 
         @self.app.get("/api/analysis/layer/{layer_name}/embedding")
-        async def analysisLayerEmbedding(layer_name: str, normalization: Literal['none', 'row', 'col'] = 'none', method: Literal['mds', 'tsne'] = "mds", distance: Literal['euclidean', 'jaccard'] = "euclidean"):
-            this_activation = np.array([
-                activation[layer_name] for activation in self.activationsSummary
-            ]).reshape(len(self.activationsSummary), -1)
+        async def analysisLayerEmbedding(
+            layer_name: str,
+            normalization: Literal["none", "row", "col"] = "none",
+            method: Literal["mds", "tsne", "pca", "kpca", "umap", "autoencoder", "autoencoder-pytorch"] = "umap",
+            distance: Literal["euclidean", "jaccard"] = "euclidean",
+            take_summary: bool = True,
+        ):
+            def _compute():
+                return _compute_embedding(layer_name, normalization, method, distance, take_summary)
+            return await asyncio.to_thread(_compute)
 
-            if normalization == 'row':
-                this_activation = normalize(this_activation, axis=1, norm='l1')
-            elif normalization == 'col':
-                this_activation = normalize(this_activation, axis=0, norm='l1')
+        def _compute_embedding(layer_name, normalization, method, distance, take_summary):
+            if take_summary:
+                this_activation = [
+                    activation[layer_name] for activation in self.activationsSummary
+                ]
+            else:
+                this_activation = [
+                    activation[layer_name] for activation in self.activations
+                ]
+            this_activation = np.array(this_activation).reshape(len(this_activation), -1)
 
-            if distance == 'euclidean':
-                act_dist_mat = squareform(pdist(this_activation, metric='cityblock'))
-            elif distance == 'jaccard':
+            if normalization == "row":
+                this_activation = normalize(this_activation, axis=1, norm="l1")
+            elif normalization == "col":
+                this_activation = normalize(this_activation, axis=0, norm="l1")
+
+            if distance == "euclidean":
+                act_dist_mat = squareform(pdist(this_activation, metric="cityblock"))
+            elif distance == "jaccard":
                 binary = (this_activation > 0.5).astype(np.float64)
-                act_dist_mat = squareform(pdist(binary, metric='jaccard'))
+                act_dist_mat = squareform(pdist(binary, metric="jaccard"))
                 act_dist_mat = np.nan_to_num(act_dist_mat, nan=0.0)
 
-            if method == 'mds':
+            if method == "pca":
+                from sklearn.decomposition import PCA
+                embedding_model = PCA(n_components=2)
+                coords = embedding_model.fit_transform(this_activation)
+                return coords.tolist()
+            elif method == "kpca":
+                from sklearn.decomposition import KernelPCA
+                embedding_model = KernelPCA(n_components=2, kernel="precomputed")
+                coords = embedding_model.fit_transform(act_dist_mat)
+                return coords.tolist()
+            elif method == "mds":
                 embedding_model = manifold.MDS(
-                    n_components=2, dissimilarity="precomputed", random_state=6, normalized_stress='auto')
-            elif method == 'tsne':
-                embedding_model = manifold.TSNE(n_components=2, metric='precomputed', random_state=6, perplexity=min(
-                    30, len(this_activation)-1), init='random')
+                    n_components=2,
+                    dissimilarity="precomputed",
+                    normalized_stress="auto",
+                )
+            elif method == "tsne":
+                embedding_model = manifold.TSNE(
+                    n_components=2,
+                    metric="precomputed",
+                    perplexity=min(30, len(this_activation) - 1),
+                    init="random",
+                )
+            elif method == "umap":
+                import umap
+                embedding_model = umap.UMAP(n_components=2, metric="precomputed")
+            elif method in ("autoencoder", "autoencoder-pytorch"):
+                # Torch version uses PyTorch autoencoder like TF's autoencoder-pytorch
+                import torch as torch_ae
+                import torch.nn as nn
+                import torch.optim as optim
+
+                class EmbeddingModelAE(nn.Module):
+                    def __init__(self, input_dim):
+                        super().__init__()
+                        self.encoder = nn.Sequential(
+                            nn.Linear(input_dim, 128),
+                            nn.ReLU(True),
+                            nn.Linear(128, 64),
+                            nn.ReLU(True),
+                            nn.Linear(64, 2),
+                            nn.ReLU(True),
+                        )
+                        self.decoder = nn.Sequential(
+                            nn.Linear(2, 64),
+                            nn.ReLU(True),
+                            nn.Linear(64, 128),
+                            nn.ReLU(True),
+                            nn.Linear(128, input_dim),
+                            nn.Sigmoid(),
+                        )
+
+                    def forward(self, x):
+                        x = self.encoder(x)
+                        x = self.decoder(x)
+                        return x
+
+                    def fit_transform(self, x, num_epochs=5000, batch_size=256):
+                        norm_x = normalize(this_activation, axis=0, norm="l1")
+                        x_t = torch_ae.tensor(norm_x, dtype=torch_ae.float32)
+                        optimizer = optim.Adam(self.parameters(), lr=1e-3)
+                        criterion = nn.BCELoss()
+                        for epoch in range(num_epochs):
+                            optimizer.zero_grad()
+                            outputs = self(x_t)
+                            loss = criterion(outputs, x_t)
+                            loss.backward()
+                            optimizer.step()
+                        return self.encoder(x_t).detach().numpy()
+
+                embedding_model = EmbeddingModelAE(this_activation.shape[1])
+                coords = embedding_model.fit_transform(this_activation)
+                return coords.tolist()
+
             coords = embedding_model.fit_transform(act_dist_mat)
             return coords.tolist()
 
@@ -194,18 +290,24 @@ class APAnalysisTorchModel:
             return [activation[layer_name].tolist() for activation in self.activationsSummary]
 
         @self.app.get("/api/analysis/layer/{layer_name}/{channel}/heatmap/{image_name}")
-        async def analysisLayerHeatmapImage(layer_name: str, channel: int, image_name: int):
-            image = utils.get_activation_overlay(
-                self.datasetImgs[image_name][0].squeeze(),
-                self.activations[image_name][layer_name][0][:, :, channel],
-                alpha=0.6
-            )
-            img = Image.fromarray(image.astype(np.uint8))
+        async def analysisLayerHeatmapImage(
+            layer_name: str, channel: int, image_name: int
+        ):
+            in_img = self.datasetImgs[image_name][0].squeeze()
+            in_img = (in_img - in_img.min()) / (in_img.max() - in_img.min())
+
+            act_img = self.activations[image_name][layer_name][0][
+                :, :, channel
+            ].squeeze()
+            act_img = (act_img - act_img.min()) / (act_img.max() - act_img.min())
+            image = utils.get_activation_overlay(in_img, act_img, alpha=0.6)
+            image = (image * 255).astype(np.uint8)
+            img = Image.fromarray(image)
             with io.BytesIO() as output:
                 img.save(output, format="PNG")
                 content = output.getvalue()
-            headers = {'Content-Disposition': 'inline; filename="test.png"'}
-            return Response(content, headers=headers, media_type='image/png')
+            headers = {"Content-Disposition": 'inline; filename="test.png"'}
+            return Response(content, headers=headers, media_type="image/png")
 
 
         @self.app.get("/api/analysis/allembedding")
@@ -240,7 +342,7 @@ class APAnalysisTorchModel:
 
         @self.app.get("/api/analysis/layer/{layer_name}/{channel}/kernel")
         async def analysisLayerKernel(layer_name: str, channel: int):
-            kernel = dict(model.named_modules())[layer_name].weight.data.numpy()[channel, 0, :, :]
+            kernel = dict(self.model.named_modules())[layer_name].weight.data.numpy()[channel, 0, :, :]
             kernel = ((kernel - kernel.min()) / (kernel.max() -
                       kernel.min()) * 255).astype(np.uint8)
             img = Image.fromarray(kernel)
@@ -251,38 +353,84 @@ class APAnalysisTorchModel:
             return Response(content, headers=headers, media_type='image/png')
 
         @self.app.get("/api/analysis/layer/{layer_name}/cluster")
-        async def analysisLayerCluster(layer_name: str, outlier_threshold: float = 0.8):
-            this_activation = [activation[layer_name]
-                               for activation in self.activationsSummary]
-            this_activation = np.array(this_activation)
+        async def analysisLayerCluster(
+            layer_name: str,
+            outlier_threshold: float = 0.8,
+            use_xmeans: bool = True,
+            k_clusters: int = 2,
+        ):
+            this_activation = np.array([
+                activation[layer_name] for activation in self.activationsSummary
+            ])
 
-            kmeans = KMeans(n_clusters=len(self.selectedLabels), n_init="auto")
-            kmeans.fit(this_activation)
-            
-            distance_from_center = kmeans.transform(this_activation).min(axis=1)
+            if use_xmeans:
+                xmeans_instance = xmeans(this_activation, kmax=10)
+                xmeans_instance.process()
 
-            # average distance from center for each label
-            mean_distance_from_center = np.zeros(len(self.selectedLabels))
-            max_distance_from_center = np.zeros(len(self.selectedLabels))
-            std_distance_form_center = np.zeros(len(self.selectedLabels))
-            for i, label in enumerate(self.selectedLabels):
-                mean_distance_from_center[i] = distance_from_center[kmeans.labels_ == i].mean()
-                max_distance_from_center[i] = distance_from_center[kmeans.labels_ == i].max()
-                std_distance_form_center[i] = distance_from_center[kmeans.labels_ == i].std()
-                
-            # https://www.dbs.ifi.lmu.de/Publikationen/Papers/LOF.pdf
-            outliers = []
-            for i in range(len(distance_from_center)):
-                if distance_from_center[i] > mean_distance_from_center[kmeans.labels_[i]] + std_distance_form_center[kmeans.labels_[i]] * outlier_threshold:
-                    outliers.append(i)
-                    
-            output = {
-                'labels': kmeans.labels_.tolist(),
-                'centers': kmeans.cluster_centers_.tolist(),
-                'distances': distance_from_center.tolist(),
-                'outliers': outliers,
-            }
-            return output
+                clusters = xmeans_instance.get_clusters()
+                labels_arr = [-1] * len(this_activation)
+                for cluster_id, point_indices in enumerate(clusters):
+                    for point_idx in point_indices:
+                        labels_arr[point_idx] = cluster_id
+
+                centers = xmeans_instance.get_centers()
+
+                distances = []
+                for point in this_activation:
+                    min_dist = float("inf")
+                    for center in centers:
+                        dist = np.linalg.norm(point - center)
+                        min_dist = min(min_dist, dist)
+                    distances.append(min_dist)
+
+                outliers = []
+                for i in range(len(distances)):
+                    if distances[i] > np.mean(distances) + np.std(distances) * outlier_threshold:
+                        outliers.append(i)
+
+                output = {
+                    "labels": labels_arr,
+                    "centers": centers,
+                    "distances": distances,
+                    "outliers": outliers,
+                }
+                return output
+            else:
+                kmeans = KMeans(n_clusters=k_clusters, n_init="auto")
+                kmeans.fit(this_activation)
+
+                distance_from_center = kmeans.transform(this_activation).min(axis=1)
+                k_clusters_out = kmeans.n_clusters
+                mean_distance_from_center = np.zeros(k_clusters_out)
+                max_distance_from_center = np.zeros(k_clusters_out)
+                std_distance_form_center = np.zeros(k_clusters_out)
+                for i in range(k_clusters_out):
+                    mean_distance_from_center[i] = distance_from_center[
+                        kmeans.labels_ == i
+                    ].mean()
+                    max_distance_from_center[i] = distance_from_center[
+                        kmeans.labels_ == i
+                    ].max()
+                    std_distance_form_center[i] = distance_from_center[
+                        kmeans.labels_ == i
+                    ].std()
+
+                outliers = []
+                for i in range(len(distance_from_center)):
+                    if (
+                        distance_from_center[i]
+                        > mean_distance_from_center[kmeans.labels_[i]]
+                        + std_distance_form_center[kmeans.labels_[i]] * outlier_threshold
+                    ):
+                        outliers.append(i)
+
+                output = {
+                    "labels": kmeans.labels_.tolist(),
+                    "centers": kmeans.cluster_centers_.tolist(),
+                    "distances": distance_from_center.tolist(),
+                    "outliers": outliers,
+                }
+                return output
 
         @self.app.get("/api/analysis/predictions")
         async def analysisPredictions():
@@ -319,6 +467,9 @@ class APAnalysisTorchModel:
         for layer_name, layer in self.model.named_modules():
             if isinstance(layer, torch.nn.Conv2d) or isinstance(layer, torch.nn.Linear) or isinstance(layer, torch.nn.Flatten) or isinstance(layer, torch.nn.BatchNorm2d):
                 layers.append(layer_name)
+
+        if self.layers_to_show != 'all':
+            layers = [ln for ln in layers if ln in self.layers_to_show]
 
         __datasetImgs = [[] for _ in range(len(labels))]
         __activations = [[] for _ in range(len(labels))]
@@ -417,14 +568,3 @@ class APAnalysisTorchModel:
             "shuffled": self.shuffled,
             "predictions": self.predictions,
         }
-
-
-
-    def run_server(
-            self,
-            host: str = "localhost",
-            port: int = 8000,
-        ):
-        # Starting the server
-        self.app.mount("/", StaticFiles(directory=pathlib.Path(__file__).parents[0].joinpath('static').resolve(), html=True), name="react_build")
-        uvicorn.run(self.app, host=host, port=port, log_level=self.log_level)

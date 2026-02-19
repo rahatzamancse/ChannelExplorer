@@ -79,8 +79,11 @@ export function getRawHeatmap(heatmap: number[][], nExamples: number, nClasses: 
     return heatmap.slice(0, nExamples)
 }
 
-export function shortenName(name: string, len: number): string {
+export function shortenName(name: string | unknown, len: number): string {
+    if (typeof name !== 'string') {
+        name = Array.isArray(name) ? (name[0] ?? '') : String(name ?? '')
+    }
     name = name.split(": ")[0]
-    return name.length<=len ? name : name.slice(0, len) + '...'
-  }
+    return name.length <= len ? name : name.slice(0, len) + '...'
+}
   

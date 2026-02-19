@@ -20,10 +20,12 @@
 }
 
 .react-flow__node {
-  -webkit-transition: 1s ease-in-out;
-  -moz-transition: 1s ease-in-out;
-  -o-transition: 1s ease-in-out;
-  transition: 1s ease-in-out;
+  /* Only animate position (transform), NOT size — animating all properties
+     causes ResizeObserver to fire at ~60fps when accordion height changes */
+  -webkit-transition: transform 1s ease-in-out;
+  -moz-transition: transform 1s ease-in-out;
+  -o-transition: transform 1s ease-in-out;
+  transition: transform 1s ease-in-out;
 }
 
 .react-flow__node:hover {
@@ -31,4 +33,10 @@
   -moz-transition: none !important;
   -o-transition: none !important;
   transition: none !important;
+}
+
+/* Collapse the accordion animation duration to near-zero so ReactFlow's
+   ResizeObserver only fires once instead of once per animation frame (~40fps) */
+.accordion .collapsing {
+  transition-duration: 50ms !important;
 }

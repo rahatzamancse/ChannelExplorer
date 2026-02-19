@@ -12,6 +12,8 @@ import {
     calculatePairwiseJaccard 
 } from '@utils/heatmapProcessing'
 
+const JACCARD_SVG_PADDING = { top: 10, right: 10, bottom: 10, left: 10 }
+
 const JaccardSimilarityView = React.memo(function JaccardSimilarityView({ node, width, height }: { node: Node, width: number, height: number }) {
     const [heatmap, setHeatmap] = React.useState<number[][]>([])
     const svgRef = React.useRef<SVGSVGElement>(null)
@@ -19,7 +21,7 @@ const JaccardSimilarityView = React.memo(function JaccardSimilarityView({ node, 
     const [hoveredItem, setHoveredItem] = React.useState<[number, number]>([-1, -1])
     const [classLabels, setClassLabels] = React.useState<string[]>([])
 
-    const svgPadding = { top: 10, right: 10, bottom: 10, left: 10 }
+    const svgPadding = JACCARD_SVG_PADDING
 
     React.useEffect(() => {
         if (analyzeResult.examplePerClass === 0) return

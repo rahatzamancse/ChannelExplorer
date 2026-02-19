@@ -54,13 +54,17 @@ const ActivationChannels = React.memo(function ActivationChannels({ node }: { no
             {activations.map((row, i) => 
                 <div key={i} style={{ display: "flex", flexDirection: "row" }}>
                     {row.map((image, j) =>
-                        <ModalImage
-                            className='raw-activation-img'
-                            hideZoom={false}
-                            key={`${i}-${j}`}
-                            small={image}
-                            large={image}
-                        />
+                        <span key={`${i}-${j}`} onErrorCapture={e => {
+                            const el = e.currentTarget as HTMLElement
+                            if ((e.target as HTMLElement).tagName === 'IMG') el.style.display = 'none'
+                        }}>
+                            <ModalImage
+                                className='raw-activation-img'
+                                hideZoom={false}
+                                small={image}
+                                large={image}
+                            />
+                        </span>
                     )}
                 </div>
             )}

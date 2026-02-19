@@ -16,3 +16,7 @@ dist/
 # Next.js
 frontend/.next/
 frontend/out/
+frontend/.env.local
+
+# Exported static demo data
+frontend/public/static-data/

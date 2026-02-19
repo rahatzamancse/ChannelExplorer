@@ -1,24 +1,112 @@
 .about-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 50px;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 40px 24px 80px;
+  color: #333;
+  line-height: 1.7;
+}
+
+/* Hero */
+.about-hero {
   text-align: center;
+  margin-bottom: 48px;
 }
 
 .about-title {
-  font-size: 2.5em;
-  color: #333;
+  font-size: 2.6em;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 8px;
 }
 
 .about-subtitle {
-  font-size: 2em;
+  font-size: 1.25em;
   color: #666;
+  margin: 0;
 }
 
-.about-text {
+/* Sections */
+.about-section {
+  margin-bottom: 40px;
+}
+
+.about-section h2 {
   font-size: 1.5em;
-  color: #999;
-  max-width: 800px;
+  font-weight: 600;
+  color: #222;
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.about-section p {
+  font-size: 1.05em;
+  color: #444;
+  margin-bottom: 12px;
+}
+
+/* Features list */
+.about-features {
+  list-style: none;
+  padding: 0;
+}
+
+.about-features li {
+  position: relative;
+  padding: 10px 0 10px 28px;
+  font-size: 1.02em;
+  color: #444;
+}
+
+.about-features li::before {
+  content: "→";
+  position: absolute;
+  left: 0;
+  color: #0d6efd;
+  font-weight: 700;
+}
+
+/* Steps */
+.about-steps {
+  padding-left: 20px;
+}
+
+.about-steps li {
+  padding: 6px 0;
+  font-size: 1.02em;
+  color: #444;
+}
+
+.about-steps code {
+  background: #f1f3f5;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.92em;
+}
+
+/* Author */
+.about-author p {
+  text-align: left;
+}
+
+.about-links {
+  display: flex;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.about-links a {
+  display: inline-block;
+  padding: 8px 20px;
+  border: 1px solid #0d6efd;
+  border-radius: 6px;
+  color: #0d6efd;
+  text-decoration: none;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+}
+
+.about-links a:hover {
+  background: #0d6efd;
+  color: #fff;
 }

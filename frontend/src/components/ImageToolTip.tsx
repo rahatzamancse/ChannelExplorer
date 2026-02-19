@@ -33,7 +33,7 @@ function ImageToolTip({ imgs, imgType, imgData, label }: { imgs: number[], imgTy
                     <img key={i} src={img} height={200} width={200} alt="" style={{
                         imageRendering: 'pixelated',
                         zIndex: 1000,
-                    }} />
+                    }} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
                 )}
             </div>
             <p style={{

@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
     images: {
         unoptimized: true,
     },
+    turbopack: {},
     webpack: (config) => {
         config.module.rules.push({
             test: /\.worker\.ts$/,

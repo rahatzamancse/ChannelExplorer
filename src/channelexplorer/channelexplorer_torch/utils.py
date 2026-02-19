@@ -4,16 +4,19 @@ import torch
 from typing import Dict, Literal, Tuple
 
 def get_activations(model: torch.nn.Module, input_img: IMAGE_BATCH_TYPE, layer_names: list[str]):
-    """
-    Get activations from a CNN model for the given input image.
+    """Extract intermediate activations from a PyTorch model.
 
-    Parameters:
-    - model: PyTorch CNN model.
-    - input_img: Preprocessed input image tensor.
-    - layer_names: List of layer names to extract activations from.
+    Registers forward hooks on the requested layers, runs a forward pass,
+    and collects the detached output tensors.
+
+    Args:
+        model: A ``torch.nn.Module`` to inspect.
+        input_img: Batched input tensor, e.g. shape ``(B, C, H, W)``.
+        layer_names: Names of modules whose outputs should be captured
+            (as returned by ``model.named_modules()``).
 
     Returns:
-    - Dictionary with layer names as keys and activation tensors as values.
+        A dict mapping each layer name to its activation tensor.
     """
     activations = {}
     module_to_name = {}
@@ -45,6 +48,23 @@ def get_activations(model: torch.nn.Module, input_img: IMAGE_BATCH_TYPE, layer_n
 
 
 def parse_model_graph(model: torch.nn.Module, input_shape: Tuple[int, ...], layers_to_show: list[str] | Literal["all"] = "all") -> Dict[str, Any]:
+    """Build a simplified, JSON-serializable graph of a PyTorch model.
+
+    Converts the full model graph to a simplified version containing only
+    Conv2d, Linear, and Concatenate nodes, computes a layered layout, and
+    attaches per-channel kernel norms as edge weights.
+
+    Args:
+        model: A ``torch.nn.Module``.
+        input_shape: Shape of a single input batch, e.g.
+            ``(1, 3, 224, 224)``.  Used for tracing.
+        layers_to_show: Layer names to keep, or ``"all"`` to include every
+            supported layer type.
+
+    Returns:
+        A dict with keys ``"graph"`` (NetworkX node-link data),
+        ``"meta"`` (graph depth), and ``"edge_weights"`` (kernel norms).
+    """
     activation_pathway_full = pytorch_model_to_graph(model, input_shape)
     simple_activation_pathway_full = remove_intermediate_node(
         activation_pathway_full, lambda node: activation_pathway_full.nodes[node]['layer_type'] not in ['Conv2d', 'Linear', 'Concatenate'])
@@ -106,8 +126,19 @@ def parse_model_graph(model: torch.nn.Module, input_shape: Tuple[int, ...], laye
     
 
 def _record_shapes_from_forward(model: torch.nn.Module, input_shape: Tuple[int, ...]) -> Dict[str, Tuple[Tuple[int, ...], Tuple[int, ...]]]:
-    """Run one forward pass and record (input_shape, output_shape) for every module.
-    Handles branching (e.g. Inception) where siblings get the same input, not sequential output.
+    """Run a forward pass with dummy data and record shapes for every module.
+
+    Handles branching architectures (e.g. Inception) where sibling modules
+    receive the same input rather than sequential output.
+
+    Args:
+        model: The PyTorch model.
+        input_shape: Shape of the dummy input batch, e.g.
+            ``(1, 3, 224, 224)``.
+
+    Returns:
+        A dict mapping module names to ``(input_shape, output_shape)``
+        tuples.
     """
     module_to_name = {m: n for n, m in model.named_modules()}
     shapes = {}
@@ -148,6 +179,19 @@ def _record_shapes_from_forward(model: torch.nn.Module, input_shape: Tuple[int, 
 
 
 def pytorch_model_to_graph(model: torch.nn.Module, input_shape: Tuple[int, ...]) -> nx.Graph:
+    """Convert a PyTorch model into a NetworkX directed graph.
+
+    Each leaf module becomes a node annotated with a ``NodeInfo`` dict.
+    Edges represent the data-flow order inferred from a forward pass.
+
+    Args:
+        model: A ``torch.nn.Module``.
+        input_shape: Shape of a single input batch, e.g.
+            ``(1, 3, 224, 224)``.
+
+    Returns:
+        A ``nx.DiGraph`` whose nodes store ``NodeInfo`` attributes.
+    """
     G = nx.DiGraph()
     # One forward pass so shapes are correct for branching/concatenation (e.g. Inception)
     recorded_shapes = _record_shapes_from_forward(model, input_shape)

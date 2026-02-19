@@ -15,19 +15,40 @@ from PIL import Image, ImageDraw
 from .types import NodeInfo, IMAGE_TYPE, GRAY_IMAGE_TYPE
 
 def makedir(path):
+    """Create a directory and any missing parents.
+
+    Args:
+        path: Filesystem path to create.
+    """
     try:
         pathlib.Path(path).mkdir(parents=True, exist_ok=True)
     except FileExistsError:
         pass
     
 def delete_dir(path):
+    """Recursively delete a directory, ignoring errors if it doesn't exist.
+
+    Args:
+        path: Filesystem path to delete.
+    """
     shutil.rmtree(path, ignore_errors=True)
     
 def zip_dir(path, name: str):
+    """Create a ``.zip`` archive of a directory.
+
+    Args:
+        path: Directory to compress.
+        name: Base name for the archive (without extension).
+    """
     import shutil
     shutil.make_archive(name, 'zip', path)
 
 def create_unique_task_id():
+    """Generate a unique task identifier from a timestamp and UUID.
+
+    Returns:
+        A string in the form ``"<unix_timestamp>-<hex_uuid>"``.
+    """
     timestamp = int(time.time())
     random_uuid = uuid.uuid4().hex
     task_id = f"{timestamp}-{random_uuid}"
@@ -68,11 +89,20 @@ def get_activation_overlay(input_img: IMAGE_TYPE, activation: GRAY_IMAGE_TYPE, c
     return out_img
 
 def remove_intermediate_node(G: nx.Graph, node_removal_predicate: Callable):
-    '''
-    Loop over the graph until all nodes that match the supplied predicate 
-    have been removed and their incident edges fused.
-    src: https://stackoverflow.com/questions/53353335/networkx-remove-node-and-reconnect-edges
-    '''
+    """Remove nodes matching a predicate and reconnect their neighbors.
+
+    Iterates the graph until every node satisfying
+    ``node_removal_predicate`` has been removed and the edges of its
+    predecessors / successors have been fused together.
+
+    Args:
+        G: A NetworkX graph (directed or undirected).
+        node_removal_predicate: Callable that receives a node and returns
+            ``True`` if the node should be removed.
+
+    Returns:
+        A copy of *G* with the matched nodes removed and edges fused.
+    """
     g = G.copy()
     while any(node_removal_predicate(node) for node in g.nodes):
 
@@ -110,7 +140,17 @@ def remove_intermediate_node(G: nx.Graph, node_removal_predicate: Callable):
 
 
 def get_model_layout(G):
-    # Sugiyama Layout from grandalf library
+    """Compute a Sugiyama (layered) layout for a directed graph.
+
+    Uses the grandalf library to produce ``(x, y)`` positions suitable for
+    rendering a neural-network graph top-to-bottom.
+
+    Args:
+        G: A NetworkX directed graph.
+
+    Returns:
+        A dict mapping each node to an ``(x, y)`` coordinate tuple.
+    """
     if G.number_of_nodes() == 0:
         return {}
     g = grandalf.utils.convert_nextworkx_graph_to_grandalf(G)
@@ -124,9 +164,31 @@ def get_model_layout(G):
     return pos
 
 def is_numpy_type(value):
+    """Check whether *value* is a NumPy scalar or array (has a ``dtype``).
+
+    Args:
+        value: Any Python object.
+
+    Returns:
+        ``True`` if *value* has a ``dtype`` attribute.
+    """
     return hasattr(value, 'dtype')
 
 def apply_mask(img, mask_img):
+    """Element-wise multiply an image (or batch) by a 2-D binary mask.
+
+    Supports 2-D, 3-D (H×W×C), and 4-D (B×H×W×C) images.
+
+    Args:
+        img: Image array of 2, 3, or 4 dimensions.
+        mask_img: 2-D mask array of shape ``(height, width)``.
+
+    Returns:
+        The masked image with the same shape as *img*.
+
+    Raises:
+        Exception: If *img* has an unsupported number of dimensions.
+    """
     if len(img.shape) == 4:
         return np.multiply(img, mask_img[np.newaxis,:,:,np.newaxis])
     elif len(img.shape) == 3:
@@ -136,6 +198,16 @@ def apply_mask(img, mask_img):
     raise Exception
     
 def get_mask_img(polygon, size: tuple[int,int]):
+    """Rasterize a polygon into a binary mask image.
+
+    Args:
+        polygon: Sequence of ``(x, y)`` vertices defining the polygon.
+        size: Output mask size as ``(width, height)``.
+
+    Returns:
+        A NumPy array of shape ``(height, width)`` with 1 inside the
+        polygon and 0 outside.
+    """
     mask = Image.new("L", size, 0)
     draw = ImageDraw.Draw(mask)
 
@@ -149,10 +221,32 @@ def get_mask_img(polygon, size: tuple[int,int]):
 
 
 def single_activation_distance(activation1_summary: np.ndarray, activation2_summary: np.ndarray):
+    """Compute the L1 (Manhattan) distance between two activation summaries.
+
+    Args:
+        activation1_summary: 1-D summary vector for the first activation.
+        activation2_summary: 1-D summary vector for the second activation.
+
+    Returns:
+        The sum of absolute element-wise differences.
+    """
     return np.sum(np.abs(activation1_summary - activation2_summary))
 
 
 def single_activation_jaccard_distance(activation1_summary: np.ndarray, activation2_summary: np.ndarray, threshold: float = 0.5):
+    """Compute the Jaccard distance between two binarized activation summaries.
+
+    Values above *threshold* are treated as active; the distance is the
+    fraction of positions where the two binary vectors disagree.
+
+    Args:
+        activation1_summary: 1-D summary vector for the first activation.
+        activation2_summary: 1-D summary vector for the second activation.
+        threshold: Binarization threshold.
+
+    Returns:
+        A float in ``[0, 1]`` representing the Jaccard distance.
+    """
     assert len(activation1_summary) == len(activation2_summary)
     activation1_summary = activation1_summary > threshold
     activation2_summary = activation2_summary > threshold
@@ -164,6 +258,15 @@ def single_activation_jaccard_distance(activation1_summary: np.ndarray, activati
 
 
 def activation_distance(activation1_summary: dict[str, np.ndarray], activation2_summary: dict[str, np.ndarray]):
+    """Compute the total L1 distance across all layers between two summaries.
+
+    Args:
+        activation1_summary: Dict mapping layer names to summary arrays.
+        activation2_summary: Dict mapping layer names to summary arrays.
+
+    Returns:
+        The cumulative L1 distance summed over all layers.
+    """
     dist = 0
     for act1, act2 in zip(activation1_summary.values(), activation2_summary.values()):
         dist += single_activation_distance(act1, act2)
@@ -171,6 +274,17 @@ def activation_distance(activation1_summary: dict[str, np.ndarray], activation2_
 
 
 def rescale_img(img):
+    """Rescale an image to the ``[0, 255]`` uint8 range.
+
+    Squeezes leading dimensions, shifts the minimum to zero, scales the
+    maximum to 255, and converts to ``uint8``.
+
+    Args:
+        img: Input image array (may have extra leading dimensions).
+
+    Returns:
+        A ``uint8`` NumPy array with values in ``[0, 255]``.
+    """
     img = img.squeeze()
     img = img - img.min()
     img = img / img.max()

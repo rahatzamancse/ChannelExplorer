@@ -110,7 +110,11 @@ self.onmessage = (e: MessageEvent) => {
     }
 
     if (type === 'computeHeatmapProcessing') {
-        const { heatmap, normalizeRow, examplePerClass, selectedClasses, sortBy, layerType, outEdgeWeight, totalMaxFraction } = payload
+        const { heatmap, normalizeRow, examplePerClass, selectedClasses, sortBy, layerType, outEdgeWeight, totalMaxFraction } = payload as {
+            heatmap: number[][], normalizeRow: boolean, examplePerClass: number,
+            selectedClasses: number[], sortBy: string, layerType: string,
+            outEdgeWeight: number[], totalMaxFraction: number
+        }
         const nExamples = examplePerClass * selectedClasses.length
 
         const normalHeatmap = normalizeRow ? transposeArray(transposeArray(heatmap).map(row => {

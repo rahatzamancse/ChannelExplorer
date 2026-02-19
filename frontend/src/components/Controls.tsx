@@ -2,6 +2,7 @@ import React from 'react'
 import Form from 'react-bootstrap/Form';
 import { ProgressBar } from 'react-bootstrap';
 import * as api from '@api'
+import { STATIC_MODE } from '@api'
 import { useAppDispatch, useAppSelector } from '@hooks'
 import { selectAnalysisResult, setAnalysisResult } from '@features/analyzeSlice';
 import { chunkify, shortenName } from '@utils/utils';
@@ -64,11 +65,20 @@ const Controls = React.memo(function Controls() {
     }, [dispatch, setIsOpen])
 
     React.useEffect(() => {
-        api.analyze([0, 1, 2, 3], 5, false)
-            .then(({ message, task_id }) => {
-                checkTaskStatus(task_id)
-            })
         api.getLabels().then(setClasses)
+        if (STATIC_MODE) {
+            api.getConfiguration().then((res) => {
+                dispatch(setAnalysisResult(res))
+                setNExamplePerClass(res.examplePerClass)
+                setShuffled(res.shuffled)
+                api.getInputImages([...Array(res.selectedClasses.length * res.examplePerClass).keys()]).then(setInputImages)
+            })
+        } else {
+            api.analyze([0, 1, 2, 3], 5, false)
+                .then(({ message, task_id }) => {
+                    checkTaskStatus(task_id)
+                })
+        }
     }, [])
     
     React.useEffect(() => {
@@ -108,7 +118,7 @@ const Controls = React.memo(function Controls() {
         maxHeight: "94vh",
         padding: "8px",
     }}>
-        <Form style={{ width: "100%" }}>
+        {!STATIC_MODE && <Form style={{ width: "100%" }}>
             <button title='Reload the last loaded state of the Neural Network' type="button" className="btn btn-primary" style={{
                 width: "100%",
                 marginBottom: "20px",
@@ -126,17 +136,16 @@ const Controls = React.memo(function Controls() {
                     dispatch(setAnalysisResult(res))
                 })
             }}><span className="glyphicon glyphicon-refresh">Refresh</span></button>
-        </Form>
+        </Form>}
         <div style={{
             border: "1px solid lightgray",
             borderRadius: "20px",
             padding: "12px",
             width: "100%",
         }}>
-            <h5 className="mb-3">Select Labels to Analyze</h5>
-            <Form.Check type="switch" id="shufflecheck" label="Shuffle" checked={shuffled} onChange={e => setShuffled(e.target.checked)} className='mb-3 tutorial-shuffle' />
-            <Form.Control ref={nExamplePerClassRef} id="nExamplePerClass" className="mb-1  tutorial-image-per-class" type="number" min={1} max={50} placeholder='# Image Per Class' />
-            {/* <Form.Label htmlFor="nExamplePerClass" style={{ float: 'left', width: '40%'}}>Image per Class</Form.Label> */}
+            <h5 className="mb-3">{STATIC_MODE ? 'Analyzed Labels' : 'Select Labels to Analyze'}</h5>
+            {!STATIC_MODE && <Form.Check type="switch" id="shufflecheck" label="Shuffle" checked={shuffled} onChange={e => setShuffled(e.target.checked)} className='mb-3 tutorial-shuffle' />}
+            {!STATIC_MODE && <Form.Control ref={nExamplePerClassRef} id="nExamplePerClass" className="mb-1  tutorial-image-per-class" type="number" min={1} max={50} placeholder='# Image Per Class' />}
             <div style={{
                 display: "flex",
                 flexDirection: "column",
@@ -157,6 +166,7 @@ const Controls = React.memo(function Controls() {
                             label={label}
                             id={`checkbox_${index}`}
                             ref={(ref: HTMLInputElement) => {checkboxRefs.current[index] = ref}}
+                            disabled={STATIC_MODE}
                         />
                         <ProgressBar
                             now={progressValues[index]}
@@ -177,14 +187,13 @@ const Controls = React.memo(function Controls() {
                     </div>
                 ))}
             </div>
-            <button className="btn btn-primary mt-2 tutorial-analyze"
+            {!STATIC_MODE && <button className="btn btn-primary mt-2 tutorial-analyze"
             style={{
                 width: "100%",
             }}
                 
             onClick={() => {
                 const checkedLabels = checkboxRefs.current.map((checkbox, index) => checkbox.checked).reduce<number[]>((out, bool, index) => bool?out.concat(index):out, [])
-                // const checkedLabels = Array.from(document.querySelectorAll("input[type=checkbox]:checked")).map(checkbox => parseInt(checkbox.id.split("_")[1]))
                 
                 const currentNExamplePerClass = parseInt(nExamplePerClassRef.current?.value || "5")
 
@@ -192,17 +201,16 @@ const Controls = React.memo(function Controls() {
                     .then(({ message, task_id }) => {
                         checkTaskStatus(task_id)
                     })
-            }}>Analyze</button>
+            }}>Analyze</button>}
         </div>
         
         <hr />
         <h4 className="mt-2">Input Images</h4>
-        {/* Save all images */}
-        <button className="btn btn-primary mt-2" style={{
+        {!STATIC_MODE && <button className="btn btn-primary mt-2" style={{
             width: "100%",
         }} onClick={() => {
             api.saveDataset()
-        }}>Save All Images</button>
+        }}>Save All Images</button>}
         {inputImages.length > 0 ? <div style={{
             display: "flex",
             paddingLeft: "8px",

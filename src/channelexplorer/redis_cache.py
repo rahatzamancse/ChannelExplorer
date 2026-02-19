@@ -44,6 +44,17 @@ if redis_client is None:
 
 
 def redis_cache(ttl=3600):
+    """Decorator that caches function results in Redis (or in-memory fallback).
+
+    The cache key is derived from the function name and its non-private
+    arguments (arguments whose names start with ``_`` are excluded).
+
+    Args:
+        ttl: Time-to-live for cached entries in seconds.
+
+    Returns:
+        A decorator that wraps the target function with caching logic.
+    """
     def decorator_cache(func):
         @functools.wraps(func)
         def wrapper_cache(*args, **kwargs):

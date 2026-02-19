@@ -77,6 +77,8 @@ from ..server import Server
 
 
 class ChannelExplorer_TF(Server):
+    """Activation analysis server for TensorFlow / Keras models. """
+
     def __init__(
         self,
         model: K.Model,
@@ -95,17 +97,28 @@ class ChannelExplorer_TF(Server):
         layers_to_show: list[str] | Literal["all"] = "all",
         apply_relu: bool = True,
     ):
-        """
-        __init__ Creates a ChannelExplorer object for TensorFlow models.
+        """Create a ChannelExplorer instance for a TensorFlow model.
 
-        :param preprocess: The preprocessing function to preprocess the input image before feeding to the model. This will be run just before running the images through the model., defaults to lambdax:x
-        :type preprocess: Callable, optional
-        :param preprocess_inverse: This function is needed because the dataset is not directly stored in memory. To make it efficient, the preprocessed input is saved. So when displaying to the front-end, another function is needed to convert the input to image again for displaying. , defaults to lambdax:x
-        :type preprocess_inverse: Callable, optional
-        :param apply_relu: If True, applies ReLU to Conv2D and hidden Dense layer outputs to ensure post-activation values are used. This is important for models like InceptionV3 where ReLU is a separate layer. Defaults to True.
-        :type apply_relu: bool, optional
-        :return: The ChannelExplorer object.
-        :rtype: ChannelExplorer
+        Args:
+            model: A compiled ``keras.Model`` to analyze.
+            dataset: A ``tf.data.Dataset`` yielding ``(image, label)`` pairs.
+            label_names: Human-readable class names where the i-th element is
+                the name of class *i*.
+            preprocess: Preprocessing function applied to each ``(image, label)``
+                pair before feeding images to the model.
+            preprocess_inverse: Inverse of ``preprocess`` used to convert stored
+                preprocessed images back to displayable format.
+            summary_fn_image: Function that summarizes a spatial activation map
+                into a scalar per channel.
+            summary_fn_dense: Function that summarizes dense-layer activations
+                into a scalar.
+            log_level: Uvicorn logging level.
+            layers_to_show: Layer names to visualize, or ``"all"`` to include
+                every Conv2D / Dense / Flatten / Concatenate layer.
+            apply_relu: If ``True``, applies ReLU to Conv2D and hidden Dense
+                layer outputs so that post-activation values are used. Useful
+                for architectures where ReLU is a separate layer (e.g.
+                InceptionV3).
         """
         redis_client.flushdb()
 

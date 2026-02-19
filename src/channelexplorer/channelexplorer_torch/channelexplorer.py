@@ -23,6 +23,8 @@ from ..server import Server
 
 
 class APAnalysisTorchModel(Server):
+    """Activation analysis server for PyTorch models.  """
+
     def __init__(
         self,
         model: torch.nn.Module,
@@ -35,10 +37,25 @@ class APAnalysisTorchModel(Server):
         apply_relu: bool = True,
         layers_to_show: list[str] | Literal["all"] = "all",
     ):
-        """
-        :param apply_relu: If True, applies ReLU to Conv2d and hidden Linear layer outputs to ensure 
-                          post-activation values are used. Defaults to True.
-        :type apply_relu: bool, optional
+        """Create a ChannelExplorer instance for a PyTorch model.
+
+        Args:
+            model: A ``torch.nn.Module`` to analyze.
+            input_shape: Shape of a single input batch, e.g. ``(1, 3, 224, 224)``.
+                Used for tracing the model graph.
+            dataset: A ``torch.utils.data.Dataset`` yielding ``(image, label)``
+                pairs.
+            label_names: Human-readable class names where the i-th element is
+                the name of class *i*.
+            summary_fn_image: Function that summarizes a spatial activation map
+                into a scalar per channel.
+            summary_fn_dense: Function that summarizes dense-layer activations
+                into a scalar.
+            log_level: Uvicorn logging level.
+            apply_relu: If ``True``, applies ReLU to Conv2d and hidden Linear
+                layer outputs so that post-activation values are used.
+            layers_to_show: Layer names to visualize, or ``"all"`` to include
+                every Conv2d / Linear / Flatten / BatchNorm2d layer.
         """
         redis_client.flushdb()
 

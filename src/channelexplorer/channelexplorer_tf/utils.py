@@ -10,10 +10,16 @@ from ..utils import *
 
 
 def pydot_to_networkx(P):
-    """Convert a pydot graph to a networkx graph.
-    
-    Custom implementation to work around compatibility issues between
-    networkx and newer pydot versions where get_strict() signature changed.
+    """Convert a pydot graph to a NetworkX graph.
+
+    Custom implementation that works around compatibility issues between
+    NetworkX and newer pydot versions where ``get_strict()`` changed.
+
+    Args:
+        P: A pydot graph object.
+
+    Returns:
+        A ``nx.Graph`` or ``nx.DiGraph`` depending on the pydot graph type.
     """
     # Determine if graph is directed
     if P.get_type() == "graph":
@@ -64,6 +70,21 @@ def pydot_to_networkx(P):
 
 
 def parse_model_graph(model: K.Model, layers_to_show: Literal["all"]|list[str] = 'all') -> Dict[str, Any]:
+    """Build a simplified, JSON-serializable graph of a Keras model.
+
+    Converts the full model graph to a simplified version containing only
+    Conv2D, Dense, InputLayer, and Concatenate nodes, computes a layered
+    layout, and attaches per-channel kernel norms as edge weights.
+
+    Args:
+        model: A compiled ``keras.Model``.
+        layers_to_show: Layer names to keep, or ``"all"`` to include every
+            supported layer type.
+
+    Returns:
+        A dict with keys ``"graph"`` (NetworkX node-link data),
+        ``"meta"`` (graph depth), and ``"edge_weights"`` (kernel norms).
+    """
     activation_pathway_full = tensorflow_model_to_graph(model)
     simple_activation_pathway_full = remove_intermediate_node(
         activation_pathway_full, lambda node: activation_pathway_full.nodes[node]['layer_type'] not in ['Conv2D', 'Dense', 'InputLayer', 'Concatenate'])
@@ -145,14 +166,15 @@ def parse_model_graph(model: K.Model, layers_to_show: Literal["all"]|list[str] =
     }
     
 def shuffle_or_noshuffle(dataset: tf.data.Dataset, shuffle: bool = False):
-    """Shuffles the dataset if shuffle is True
+    """Optionally shuffle a ``tf.data.Dataset``.
 
     Args:
-        dataset (tf.data.Dataset): The dataset
-        shuffle (bool, optional): Whether to shuffle or not. Defaults to False.
+        dataset: The TensorFlow dataset.
+        shuffle: If ``True``, shuffle with a buffer of 10 000 elements
+            and a random seed.
 
     Returns:
-        tf.data.Dataset: The shuffled or unshuffled dataset
+        The (possibly shuffled) dataset.
     """
     if shuffle:
         # TODO: make the shuffling for whole data instead of first 10000 data
@@ -165,13 +187,19 @@ def shuffle_or_noshuffle(dataset: tf.data.Dataset, shuffle: bool = False):
         return dataset
 
 def parse_tensorflow_dot_label(label: str) -> NodeInfo:
-    """Parses the label of the layer in tensorflow.keras.utils.model_to_dot
+    """Parse a layer label produced by ``keras.utils.model_to_dot``.
+
+    Handles both the legacy pipe-separated format and the newer
+    HTML ``<table>`` format introduced in TensorFlow 2.x.
 
     Args:
-        label (str): The label of the layer in tensorflow.keras.utils.model_to_dot
+        label: Raw label string from a pydot node.
 
     Returns:
-        NodeInfo: The parsed result.
+        A ``NodeInfo`` dict with the parsed layer metadata.
+
+    Raises:
+        ValueError: If the label cannot be parsed.
     """
     # Strip surrounding quotes if present
     if label.startswith('"') and label.endswith('"'):
@@ -209,7 +237,7 @@ def parse_tensorflow_dot_label(label: str) -> NodeInfo:
 
 
 def _parse_html_label(label: str) -> NodeInfo:
-    """Parse the new HTML-style label format from TensorFlow 2.x model_to_dot"""
+    """Parse the HTML ``<table>`` label format from TensorFlow 2.x ``model_to_dot``."""
     
     # Extract name and layer type: <b>name</b> (LayerType)
     name_pattern = re.compile(r'<b>(\w+)</b>\s*\((\w+)\)')
@@ -259,13 +287,16 @@ def _parse_html_label(label: str) -> NodeInfo:
     return ret
 
 def tensorflow_model_to_graph(model: K.Model) -> nx.Graph:
-    """Converts a tensorflow.keras model to a networkx graph
+    """Convert a Keras model into a NetworkX directed graph.
+
+    Each node carries a ``NodeInfo`` dict with layer name, type, shapes,
+    activation function, and kernel size.
 
     Args:
-        model (K.Model): The model
+        model: A compiled ``keras.Model``.
 
     Returns:
-        nx.Graph: The networkx graph
+        A ``nx.DiGraph`` whose nodes store ``NodeInfo`` attributes.
     """
     dot = K.utils.model_to_dot(
         model,
@@ -301,6 +332,24 @@ def tensorflow_model_to_graph(model: K.Model) -> nx.Graph:
     return G
 
 def get_mask_activation_channels(mask_img, activations, summary_fn_image, threshold_fn=lambda layer, channel: channel > np.percentile(layer, 99)):
+    """Find activation channels that respond strongly within a masked region.
+
+    For each layer and channel, the activation map is spatially masked by
+    *mask_img*, summarized with *summary_fn_image*, and compared against
+    *threshold_fn* to decide whether the channel is considered "activated".
+
+    Args:
+        mask_img: 2-D binary mask array (H×W) indicating the region of
+            interest.
+        activations: Dict mapping layer names to activation arrays of
+            shape ``(1, H, W, C)``.
+        summary_fn_image: Summarization function (see ``metrics``).
+        threshold_fn: Callable ``(layer_summaries, channel_summary) -> bool``
+            that decides if a channel is activated.
+
+    Returns:
+        A dict mapping layer names to lists of activated channel indices.
+    """
     masked_activations = {layer:[] for layer in activations}
     activated_channels = {layer:[] for layer in masked_activations}
     for layer, val in activations.items():

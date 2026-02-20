@@ -1,5 +1,26 @@
 # ChannelExplorer
 
+<div align="center">
+<a href="https://app.netlify.com/projects/channelexplorer/deploys">
+  <img alt="Netlify Status" src="https://api.netlify.com/api/v1/badges/00b5b0c2-73c1-4fdc-9545-9ad6bb8c2159/deploy-status" style="display: inline-block; margin: 0 8px;"/>
+</a>
+<a href="https://pypi.org/project/channelexplorer/">
+  <img alt="PyPI version" src="https://img.shields.io/pypi/v/channelexplorer" style="display: inline-block; margin: 0 8px;"/>
+</a>
+<br/>
+<strong>
+  <span style="font-size:2em;">
+    🚀 
+    <a href="https://channelexplorer.netlify.app" style="text-decoration: none; color: #3b82f6;">
+      Demo Link: channelexplorer.netlify.app
+    </a>
+    🚀
+  </span>
+</strong>
+</div>
+<br/>
+
+
 ![ChannelExplorer](.github/readme/teaser.png)
 
 A visual analytics tool for exploring neural network activation channels.

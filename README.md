@@ -19,7 +19,7 @@ you can quickly identify patterns, outliers, and redundancies across classes.
 
 ## Demo Quickstart (InceptionV3 + Imagenette)
 
-To run the demo, you can use the following command:
+To run the demo static website for the InceptionV3 + Imagenette example, you can use the following command. But it is less-interactive than the server as it is just pre-computed data without any CPU/GPU dependencies.
 
 ```bash
 docker run -p 8000:8000/tcp channelexplorer
@@ -67,6 +67,8 @@ To point at a non-default Redis instance, set these environment variables:
 | `REDIS_DB` | `0` |
 
 ## Usage
+
+You can see `examples/run_tf.py` for a complete example with multiple model and parameter options. 
 
 ### TensorFlow
 

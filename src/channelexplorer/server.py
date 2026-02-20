@@ -58,6 +58,7 @@ class Server(ABC):
             host: IP address to bind to.
             port: Port number to listen on.
         """
-        # Starting the server
-        # self.app.mount("/", StaticFiles(directory=pathlib.Path(__file__).parents[0].joinpath('static').resolve(), html=True), name="react_build")
+        static_dir = pathlib.Path(__file__).parent / "static"
+        if static_dir.is_dir():
+            self.app.mount("/", StaticFiles(directory=static_dir, html=True), name="static_frontend")
         uvicorn.run(self.app, host=host, port=port, log_level=self.log_level)

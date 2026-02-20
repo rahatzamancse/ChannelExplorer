@@ -1,5 +1,7 @@
 # ChannelExplorer
 
+![ChannelExplorer](.github/readme/teaser.png)
+
 A visual analytics tool for exploring neural network activation channels.
 Supports both **TensorFlow / Keras** and **PyTorch** models.
 
@@ -22,7 +24,7 @@ you can quickly identify patterns, outliers, and redundancies across classes.
 To run the demo static website for the InceptionV3 + Imagenette example, you can use the following command. But it is less-interactive than the server as it is just pre-computed data without any CPU/GPU dependencies.
 
 ```bash
-docker run -p 8000:8000/tcp channelexplorer
+docker run -p 8000:8000/tcp rahatzamancse/channelexplorer
 ```
 
 Then open <http://localhost:8000> in your browser.
@@ -156,6 +158,119 @@ server.run(host="localhost", port=8000)
 
 Once the server is running, open <http://localhost:8000> (or use the
 standalone frontend in development mode — see below).
+
+
+
+## Cool Example Usages
+
+### Separation of Classes Across Layers
+
+Loading different models with classification datasets, we can easily see how the classes slowly get separated across the layers.
+
+![separation](.github/readme/separation.png)
+
+
+### Exploring Intra-Class Separability
+
+Even if we load a single class, we can see that there are subclusters in the activation space for different layers. Here are some examples for different classes.
+
+<details>
+<summary>Labrador Retriever: White dog vs. Black dog</summary>
+
+![](.github/readme/subclassification/subclassification-2.png)
+
+</details>
+
+<details>
+<summary>Basenji: Western Pet Leanage vs. African Leanage</summary>
+
+![](.github/readme/subclassification/subclassification-3.png)
+
+</details>
+
+<details>
+<summary>Red Wolf: Summer vs. Winter Wolf</summary>
+
+![](.github/readme/subclassification/subclassification-4.png)
+
+</details>
+
+<details>
+<summary>Mongoose: Desert vs. City Mongoose</summary>
+
+![](.github/readme/subclassification/subclassification-5.png)
+
+</details>
+
+<details>
+<summary>Stove: Chimney vs. Stove</summary>
+
+![](.github/readme/subclassification/subclassification-6.png)
+
+</details>
+
+<details>
+<summary>Spider Web: Empty vs. Occupied Spider Web</summary>
+
+![](.github/readme/subclassification/subclassification-7.png)
+
+</details>
+
+<details>
+<summary>Refrigerator: Open vs. Closed</summary>
+
+![](.github/readme/subclassification/subclassification-8.png)
+
+</details>
+
+<details>
+<summary>Pickelhaube: Worn vs. Unworn</summary>
+
+![](.github/readme/subclassification/subclassification-9.png)
+
+</details>
+
+<details>
+<summary>Harmonica: Still vs. Playing</summary>
+
+![](.github/readme/subclassification/subclassification-10.png)
+
+</details>
+
+<details>
+<summary>Dishwasher: Closed vs. Open</summary>
+
+![](.github/readme/subclassification/subclassification-11.png)
+
+</details>
+
+<details>
+<summary>Diaper: Worn vs Unworn</summary>
+
+![](.github/readme/subclassification/subclassification-12.png)
+
+</details>
+
+<details>
+<summary>Oxen: Muskox vs. Bull</summary>
+
+![](.github/readme/subclassification/subclassification-1.png)
+
+</details>
+
+
+### Exploring Inter-Class Confusion and Class Hierarchy
+
+The combined usage of the 3 views (Activation Scatterplot, Jaccard Similarity, and Heatmap View) can be very powerful to explore the inter and intra-class confusion and class hierarchy. Refer to the paper for more details.
+
+![](.github/readme/class-hierarchy.png)
+
+
+You can follow this overall workflow to explore the inter and intra-class confusion and class hierarchy.
+
+![](.github/readme/workflow.png)
+
+
 
 ## Development
 

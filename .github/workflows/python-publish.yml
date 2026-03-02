@@ -1,6 +1,9 @@
 name: Upload Python Package
 
 on:
+  push:
+    tags:
+      - 'v*'   # e.g. git tag v0.2.2 && git push origin v0.2.2
   release:
     types: [published]
 
